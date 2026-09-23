@@ -1,0 +1,22 @@
+# Fichiers de configuration sensibles (mots de passe, clés API...)
+config/database.php
+
+# Dossier de stockage (uploads, cache, logs générés par l'appli)
+storage/*
+!storage/.gitkeep
+
+# Uploads des utilisateurs
+assets/uploads/*
+!assets/uploads/.gitkeep
+
+# Dépendances (si tu utilises Composer)
+vendor/
+
+# Fichiers système / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
