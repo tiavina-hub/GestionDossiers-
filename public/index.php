@@ -43,12 +43,12 @@ $regions = $stmt->fetchAll();
     >
         🔎 Rechercher un dossier
     </a>
-    <a
+    <!-- <a
     href="regions.php"
     class="btn btn-outline-secondary btn-lg"
 >
     ⚙️ Gérer les régions
-</a>
+</a> -->
 </div>
 
     <div class="row g-4">

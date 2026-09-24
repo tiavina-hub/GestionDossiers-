@@ -201,44 +201,38 @@ $types = $stmt->fetchAll();
     >
         ← Accueil
     </a>
+<h1>
+    📍 <?= htmlspecialchars($region['nom']) ?>
+</h1>
 
-    <h1>
-        📍 <?= htmlspecialchars($region['nom']) ?>
-    </h1>
+<p class="text-muted">
+    Gestion des types et dossiers de cette région
+</p>
 <div class="card shadow-sm mb-4">
     <div class="card-body">
+<form method="GET" action="recherche.php">
 
-        <form method="GET" action="recherche.php">
+    <input
+        type="hidden"
+        name="region_id"
+        value="<?= $region['id'] ?>"
+    >
 
-            <input
-                type="hidden"
-                name="region_id"
-                value="<?= $region['id'] ?>"
-            >
+    <input
+        type="text"
+        name="proprietaire"
+        class="form-control"
+        placeholder="Rechercher un propriétaire..."
+    >
 
-            <label class="form-label">
-                🔎 Rechercher dans <?= htmlspecialchars($region['nom']) ?>
-            </label>
+    <button
+        type="submit"
+        class="btn btn-primary"
+    >
+        🔎 Rechercher
+    </button>
 
-            <div class="input-group">
-
-                <input
-                    type="text"
-                    name="q"
-                    class="form-control"
-                    placeholder="Propriétaire, lieu, superficie, référence..."
-                >
-
-                <button
-                    type="submit"
-                    class="btn btn-primary"
-                >
-                    Rechercher
-                </button>
-
-            </div>
-
-        </form>
+</form>
 
     </div>
 </div>
