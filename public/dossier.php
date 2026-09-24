@@ -65,6 +65,19 @@ $documents = $stmt->fetchAll();
 </head>
 
 <body class="bg-light">
+    <?php if (isset($_GET['upload'])): ?>
+
+    <?php if ((int) $_GET['upload'] > 0): ?>
+
+        <div class="alert alert-success">
+            ✅
+            <?= (int) $_GET['upload'] ?>
+            document(s) ajouté(s) avec succès.
+        </div>
+
+    <?php endif; ?>
+
+<?php endif; ?>
 
 <div class="container py-5">
 
@@ -89,6 +102,26 @@ $documents = $stmt->fetchAll();
                 📁 <?= htmlspecialchars($dossier['titre']) ?>
             </h1>
 
+            <div class="mb-4">
+
+    <a
+        href="modifier_dossier.php?id=<?= $dossier['id'] ?>"
+        class="btn btn-warning"
+    >
+        ✏️ Modifier
+    </a>
+
+    <a
+        href="supprimer_dossier.php?id=<?= $dossier['id'] ?>"
+        class="btn btn-danger"
+        onclick="return confirm(
+            'Voulez-vous vraiment supprimer ce dossier ?'
+        );"
+    >
+        🗑️ Supprimer
+    </a>
+
+</div>
             <hr>
 
             <div class="row">
@@ -137,51 +170,178 @@ $documents = $stmt->fetchAll();
 
     </div>
 
-    <div class="card shadow-sm">
+    <div class="card shadow-sm mt-4">
 
-        <div class="card-header">
+    <div class="card-header">
+        <h4 class="mb-0">
+            📎 Documents du dossier
+        </h4>
+    </div>
 
-            <h4 class="mb-0">
-                📎 Documents
-            </h4>
+    <div class="card-body">
+        <form
+    action="ajouter_document.php"
+    method="POST"
+    enctype="multipart/form-data"
+    class="mb-4"
+>
 
-        </div>
+    <input
+        type="hidden"
+        name="dossier_id"
+        value="<?= $dossier['id'] ?>"
+    >
 
-        <div class="card-body">
+    <label class="form-label">
+        Ajouter des documents
+    </label>
 
-            <?php if (empty($documents)): ?>
+    <div class="input-group">
 
-                <p class="text-muted">
-                    Aucun document attaché à ce dossier.
-                </p>
+        <input
+            type="file"
+            name="documents[]"
+            class="form-control"
+            multiple
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
+        >
 
-            <?php else: ?>
-
-                <ul class="list-group">
-
-                    <?php foreach ($documents as $document): ?>
-
-                        <li class="list-group-item">
-
-                            📄
-                            <?= htmlspecialchars($document['nom_original']) ?>
-
-                            <span class="text-muted">
-                                (<?= round($document['taille'] / 1024, 1) ?> Ko)
-                            </span>
-
-                        </li>
-
-                    <?php endforeach; ?>
-
-                </ul>
-
-            <?php endif; ?>
-
-        </div>
+        <button
+            type="submit"
+            class="btn btn-success"
+        >
+            📎 Ajouter
+        </button>
 
     </div>
 
+    <small class="text-muted">
+        PDF, Word, Excel et images.
+    </small>
+
+</form>
+
+        <?php if (empty($documents)): ?>
+
+            <div class="alert alert-info mb-0">
+                Aucun document n'est associé à ce dossier.
+            </div>
+
+        <?php else: ?>
+
+            <div class="list-group">
+
+                <?php foreach ($documents as $document): ?>
+
+                    <div class="list-group-item">
+
+                        <div class="d-flex justify-content-between align-items-center">
+
+                            <div>
+
+                                <?php
+                                $extension = strtolower(
+                                    pathinfo(
+                                        $document['nom_original'],
+                                        PATHINFO_EXTENSION
+                                    )
+                                );
+
+                                if ($extension === 'pdf') {
+                                    echo '📕';
+                                } elseif (
+                                    in_array(
+                                        $extension,
+                                        ['jpg', 'jpeg', 'png'],
+                                        true
+                                    )
+                                ) {
+                                    echo '🖼️';
+                                } elseif (
+                                    in_array(
+                                        $extension,
+                                        ['doc', 'docx'],
+                                        true
+                                    )
+                                ) {
+                                    echo '📘';
+                                } elseif (
+                                    in_array(
+                                        $extension,
+                                        ['xls', 'xlsx'],
+                                        true
+                                    )
+                                ) {
+                                    echo '📊';
+                                } else {
+                                    echo '📄';
+                                }
+                                ?>
+
+                                <strong>
+                                    <?= htmlspecialchars(
+                                        $document['nom_original']
+                                    ) ?>
+                                </strong>
+
+                                <small class="text-muted ms-2">
+
+                                    <?= round(
+                                        ((int) $document['taille']) / 1024,
+                                        1
+                                    ) ?>
+                                    Ko
+
+                                </small>
+
+                            </div>
+
+                            <div>
+
+                                <a
+                                    href="telecharger.php?id=<?= $document['id'] ?>"
+                                    class="btn btn-sm btn-primary"
+                                >
+                                    ⬇️ Télécharger
+                                </a>
+
+                                <?php if ($extension === 'pdf'): ?>
+
+                                    <a
+                                        href="telecharger.php?id=<?= $document['id'] ?>"
+                                        target="_blank"
+                                        class="btn btn-sm btn-outline-secondary"
+                                    >
+                                        👁️ Ouvrir
+                                    </a>
+
+                                <?php endif; ?>
+
+                                <a
+                                    href="supprimer_document.php?id=<?= $document['id'] ?>"
+                                    class="btn btn-sm btn-danger"
+                                    onclick="return confirm(
+                                        'Supprimer ce document ?'
+                                    );"
+                                >
+                                    🗑️
+                                </a>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                <?php endforeach; ?>
+
+            </div>
+
+        <?php endif; ?>
+
+    </div>
+
+</div>
 </div>
 
 </body>
