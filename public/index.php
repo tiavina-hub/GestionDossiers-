@@ -1,5 +1,7 @@
 <?php
+require_once __DIR__ . '/../config/auth.php';
 
+require_login();
 require_once __DIR__ . '/../config/database.php';
 
 $stmt = $pdo->query("
@@ -27,6 +29,28 @@ $regions = $stmt->fetchAll();
 </head>
 
 <body class="bg-light">
+    <div class="container pt-3">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <span class="text-muted">
+            👤
+            <?= htmlspecialchars(
+                $_SESSION['nom_complet']
+                ?: $_SESSION['username']
+            ) ?>
+        </span>
+
+        <a
+            href="logout.php"
+            class="btn btn-outline-danger btn-sm"
+        >
+            Déconnexion
+        </a>
+
+    </div>
+
+</div>
 
 <div class="container py-5">
 
@@ -43,6 +67,19 @@ $regions = $stmt->fetchAll();
     >
         🔎 Rechercher un dossier
     </a>
+    <?php if (
+    isset($_SESSION['user_role']) &&
+    $_SESSION['user_role'] === 'admin'
+): ?>
+
+    <a
+        href="utilisateurs.php"
+        class="btn btn-outline-primary btn-lg"
+    >
+        👥 Utilisateurs
+    </a>
+
+<?php endif; ?>
     <!-- <a
     href="regions.php"
     class="btn btn-outline-secondary btn-lg"

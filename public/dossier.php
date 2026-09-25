@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/auth.php';
+require_login();
 
 require_once __DIR__ . '/../config/database.php';
 
@@ -110,7 +112,12 @@ $documents = $stmt->fetchAll();
     >
         ✏️ Modifier
     </a>
-
+  <a
+    href="deplacer_dossier.php?id=<?= $dossier['id'] ?>"
+    class="btn btn-info"
+>
+    🔄 Déplacer
+</a>
     <a
         href="supprimer_dossier.php?id=<?= $dossier['id'] ?>"
         class="btn btn-danger"

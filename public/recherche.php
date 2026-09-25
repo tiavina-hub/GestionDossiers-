@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/auth.php';
+require_login();
 
 require_once __DIR__ . '/../config/database.php';
 
@@ -461,6 +463,68 @@ $resultats = $stmt->fetchAll();
     <?php endif; ?>
 
 </div>
+<script>
 
+const regionSelect = document.querySelector(
+    'select[name="region_id"]'
+);
+
+const typeSelect = document.querySelector(
+    'select[name="type_id"]'
+);
+
+const typesData = <?= json_encode(
+    $types,
+    JSON_UNESCAPED_UNICODE
+) ?>;
+
+function filtrerTypes() {
+
+    const regionId = regionSelect.value;
+
+    const typeActuel = typeSelect.value;
+
+    typeSelect.innerHTML = '';
+
+    const optionTous = document.createElement('option');
+
+    optionTous.value = '';
+    optionTous.textContent = 'Tous les types';
+
+    typeSelect.appendChild(optionTous);
+
+    typesData.forEach(type => {
+
+        if (
+            regionId === '' ||
+            String(type.region_id) === String(regionId)
+        ) {
+
+            const option = document.createElement('option');
+
+            option.value = type.id;
+
+            option.textContent = type.nom;
+
+            if (
+                String(type.id) === String(typeActuel)
+            ) {
+                option.selected = true;
+            }
+
+            typeSelect.appendChild(option);
+        }
+
+    });
+}
+
+regionSelect.addEventListener(
+    'change',
+    filtrerTypes
+);
+
+filtrerTypes();
+
+</script>
 </body>
 </html>
