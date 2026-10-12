@@ -1,0 +1,193 @@
+<?php
+require_once __DIR__ . '/../config/auth.php';
+
+require_login();
+
+require_once __DIR__ . '/../config/database.php';
+
+/*
+ * On regroupe les différentes parties d'un même SP
+ * avec numero_officiel.
+ *
+ * Exemple :
+ * SP 20 :
+ * - IARIVO AVARADRANO 20
+ * - MAEVATSARA 20 (1)
+ * - MAEVATSARA 20 (2)
+ */
+
+$stmt = $pdo->query("
+    SELECT
+        sp.numero_officiel,
+        COUNT(DISTINCT sp.id) AS nombre_parties,
+        COUNT(f.id) AS nombre_fitandremana
+    FROM synodam_paritany sp
+    LEFT JOIN fitandremana f
+        ON f.sp_id = sp.id
+    GROUP BY sp.numero_officiel
+    ORDER BY CAST(sp.numero_officiel AS UNSIGNED) ASC
+");
+
+$sps = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+?>
+
+<!DOCTYPE html>
+<html lang="mg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Fitantanana antontan-taratasy FJKM</title>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+
+    <style>
+        body {
+            background: #f5f7fa;
+        }
+
+        .sp-card {
+            transition: 0.2s;
+        }
+
+        .sp-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .sp-number {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- BARRE DU HAUT -->
+<div class="container pt-3">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <span class="text-muted">
+            👤
+            <?= htmlspecialchars(
+                $_SESSION['nom_complet'] ?? $_SESSION['username'] ?? ''
+            ) ?>
+        </span>
+
+        <a
+            href="logout.php"
+            class="btn btn-outline-danger btn-sm"
+        >
+            Hivoaka
+        </a>
+
+    </div>
+
+</div>
+
+
+<!-- CONTENU -->
+<div class="container py-5">
+
+    <div class="text-center mb-5">
+
+        <h1 class="fw-bold">
+            📁 Fitantanana ny antontan-taratasy FJKM
+        </h1>
+
+        <p class="text-muted">
+            Safidio ny Synodam-Paritany
+        </p>
+
+    </div>
+
+
+    <!-- BOUTONS -->
+    <div class="text-center mb-5">
+
+        <a
+            href="recherche.php"
+            class="btn btn-primary btn-lg me-2"
+        >
+            🔎 Karohy antontan-taratasy
+        </a>
+
+        <?php if (
+            isset($_SESSION['user_role']) &&
+            $_SESSION['user_role'] === 'admin'
+        ): ?>
+
+            <a
+                href="utilisateurs.php"
+                class="btn btn-outline-primary btn-lg"
+            >
+                👥 Mpampiasa
+            </a>
+
+        <?php endif; ?>
+
+    </div>
+
+
+    <!-- LISTE DES SP -->
+    <div class="row g-4">
+
+        <?php foreach ($sps as $sp): ?>
+
+            <div class="col-md-4 col-lg-3">
+
+                <div class="card shadow-sm h-100 sp-card">
+
+                    <div class="card-body text-center">
+
+                        <div class="sp-number text-primary">
+                            SP <?= htmlspecialchars($sp['numero_officiel']) ?>
+                        </div>
+
+                        <p class="text-muted mb-2">
+                            <?= (int)$sp['nombre_fitandremana'] ?>
+                            Fitandremana
+                        </p>
+
+                        <?php if ((int)$sp['nombre_parties'] > 1): ?>
+
+                            <span class="badge bg-warning text-dark mb-3">
+                                <?= (int)$sp['nombre_parties'] ?> parties
+                            </span>
+
+                        <?php else: ?>
+
+                            <span class="badge bg-success mb-3">
+                                1 partie
+                            </span>
+
+                        <?php endif; ?>
+
+                        <br>
+
+                        <a
+                            href="sp.php?numero=<?= urlencode($sp['numero_officiel']) ?>"
+                            class="btn btn-primary"
+                        >
+                            Hijery
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        <?php endforeach; ?>
+
+    </div>
+
+</div>
+
+</body>
+</html>

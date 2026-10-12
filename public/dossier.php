@@ -4,351 +4,281 @@ require_login();
 
 require_once __DIR__ . '/../config/database.php';
 
-$id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+$type_id = (int)($_GET['type_id'] ?? 0);
 
-if (!$id) {
-    die("Dossier invalide.");
+if ($type_id <= 0) {
+    header('Location: index.php');
+    exit;
 }
 
+/* Type + Fitandremana + SP */
 $stmt = $pdo->prepare("
-    SELECT
-        d.*,
+    SELECT 
+        t.id AS type_id,
         t.nom AS type_nom,
-        r.id AS region_id,
-        r.nom AS region_nom
-    FROM dossiers d
-    JOIN types_dossiers t ON d.type_id = t.id
-    JOIN regions r ON t.region_id = r.id
-    WHERE d.id = ?
+        f.id AS fitandremana_id,
+        f.nom AS fitandremana_nom,
+        sp.id AS sp_id,
+        sp.numero_officiel,
+        sp.nom AS sp_nom
+    FROM types_dossiers t
+    JOIN fitandremana f ON f.id = t.fitandremana_id
+    JOIN synodam_paritany sp ON sp.id = f.sp_id
+    WHERE t.id = ?
 ");
+$stmt->execute([$type_id]);
+$info = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$stmt->execute([$id]);
-
-$dossier = $stmt->fetch();
-
-if (!$dossier) {
-    die("Dossier introuvable.");
+if (!$info) {
+    die("Karazana antontan-taratasy tsy hita.");
 }
 
+/* Liste des dossiers */
 $stmt = $pdo->prepare("
     SELECT *
-    FROM documents
-    WHERE dossier_id = ?
-    ORDER BY date_ajout DESC
+    FROM dossiers
+    WHERE type_id = ?
+    ORDER BY date_modification DESC, id DESC
 ");
-
-$stmt->execute([$id]);
-
-$documents = $stmt->fetchAll();
-
+$stmt->execute([$type_id]);
+$dossiers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
-<html lang="fr">
-
+<html lang="mg">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <meta charset="UTF-8">
+<title>Dossiers TANY</title>
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+<style>
+* {
+    box-sizing: border-box;
+}
 
-    <title>
-        <?= htmlspecialchars($dossier['titre']) ?>
-    </title>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    color: #222;
+}
 
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    >
+header {
+    background: #1f2937;
+    color: white;
+    padding: 20px 30px;
+}
 
+header h1 {
+    margin: 0 0 8px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 30px auto;
+    padding: 0 20px;
+}
+
+.breadcrumb {
+    margin-bottom: 25px;
+}
+
+.breadcrumb a {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+.info {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+
+.actions {
+    margin-bottom: 20px;
+}
+
+.btn {
+    display: inline-block;
+    padding: 11px 18px;
+    border-radius: 8px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+.btn-primary {
+    background: #2563eb;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #1d4ed8;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+
+th, td {
+    padding: 14px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+}
+
+th {
+    background: #f1f5f9;
+}
+
+.badge {
+    padding: 5px 10px;
+    border-radius: 20px;
+    background: #e5e7eb;
+}
+
+.empty {
+    background: white;
+    padding: 35px;
+    border-radius: 12px;
+    text-align: center;
+}
+</style>
 </head>
 
-<body class="bg-light">
-    <?php if (isset($_GET['upload'])): ?>
+<body>
 
-    <?php if ((int) $_GET['upload'] > 0): ?>
+<header>
+    <h1>Fitantanana ny antontan-taratasy FJKM</h1>
 
-        <div class="alert alert-success">
-            ✅
-            <?= (int) $_GET['upload'] ?>
-            document(s) ajouté(s) avec succès.
+    <div>
+        SP <?= htmlspecialchars($info['numero_officiel']) ?>
+        — <?= htmlspecialchars($info['sp_nom']) ?>
+    </div>
+</header>
+
+<div class="container">
+
+    <div class="breadcrumb">
+        <a href="index.php">SP</a>
+        →
+        <a href="sp.php?numero=<?= urlencode($info['numero_officiel']) ?>">
+            SP <?= htmlspecialchars($info['numero_officiel']) ?>
+        </a>
+        →
+        <a href="fitandremana.php?sp_id=<?= $info['sp_id'] ?>">
+            Fitandremana
+        </a>
+        →
+        <a href="type.php?fitandremana_id=<?= $info['fitandremana_id'] ?>">
+            <?= htmlspecialchars($info['fitandremana_nom']) ?>
+        </a>
+        →
+        TANY
+    </div>
+
+    <div class="info">
+        <h2><?= htmlspecialchars($info['fitandremana_nom']) ?></h2>
+
+        <p>
+            <strong>Karazana :</strong>
+            <?= htmlspecialchars($info['type_nom']) ?>
+        </p>
+
+        <p>
+            <strong>Isan'ny dossier :</strong>
+            <?= count($dossiers) ?>
+        </p>
+    </div>
+
+    <div class="actions">
+        <a class="btn btn-primary"
+           href="nouveau_dossier.php?type_id=<?= $type_id ?>">
+            + Hanampy dossier TANY
+        </a>
+    </div>
+
+    <?php if (empty($dossiers)): ?>
+
+        <div class="empty">
+            <h3>Tsy mbola misy dossier TANY.</h3>
+            <p>
+                Tsindrio ny bokotra etsy ambony mba hanampiana dossier vaovao.
+            </p>
         </div>
+
+    <?php else: ?>
+
+        <table>
+
+            <thead>
+                <tr>
+                    <th>Laharana</th>
+                    <th>Tompon'ny tany</th>
+                    <th>Fokontany</th>
+                    <th>Kaominina</th>
+                    <th>Karazan-tany</th>
+                    <th>Daty</th>
+                    <th>Hetsika</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+            <?php foreach ($dossiers as $dossier): ?>
+
+                <tr>
+
+                    <td>
+                        <?= htmlspecialchars($dossier['laharana_fitandremana'] ?? '') ?>
+                    </td>
+
+                    <td>
+                        <?= htmlspecialchars($dossier['tomponny_tany'] ?? '') ?>
+                    </td>
+
+                    <td>
+                        <?= htmlspecialchars($dossier['fokontany'] ?? '') ?>
+                    </td>
+
+                    <td>
+                        <?= htmlspecialchars($dossier['kaominina'] ?? '') ?>
+                    </td>
+
+                    <td>
+                        <span class="badge">
+                            <?= htmlspecialchars($dossier['karazan_tany'] ?? '') ?>
+                        </span>
+                    </td>
+
+                    <td>
+                        <?= htmlspecialchars($dossier['date_creation'] ?? '') ?>
+                    </td>
+
+                    <td>
+                        <a href="voir_dossier.php?id=<?= $dossier['id'] ?>">
+                            Voir
+                        </a>
+                    </td>
+
+                </tr>
+
+            <?php endforeach; ?>
+
+            </tbody>
+
+        </table>
 
     <?php endif; ?>
 
-<?php endif; ?>
-
-<div class="container py-5">
-
-    <a
-        href="type.php?id=<?= $dossier['type_id'] ?>"
-        class="btn btn-secondary mb-4"
-    >
-        ← Retour
-    </a>
-
-    <div class="card shadow-sm mb-4">
-
-        <div class="card-body">
-
-            <p class="text-muted">
-                📍 <?= htmlspecialchars($dossier['region_nom']) ?>
-                →
-                📂 <?= htmlspecialchars($dossier['type_nom']) ?>
-            </p>
-
-            <h1>
-                📁 <?= htmlspecialchars($dossier['titre']) ?>
-            </h1>
-
-            <div class="mb-4">
-
-    <a
-        href="modifier_dossier.php?id=<?= $dossier['id'] ?>"
-        class="btn btn-warning"
-    >
-        ✏️ Modifier
-    </a>
-  <a
-    href="deplacer_dossier.php?id=<?= $dossier['id'] ?>"
-    class="btn btn-info"
->
-    🔄 Déplacer
-</a>
-    <a
-        href="supprimer_dossier.php?id=<?= $dossier['id'] ?>"
-        class="btn btn-danger"
-        onclick="return confirm(
-            'Voulez-vous vraiment supprimer ce dossier ?'
-        );"
-    >
-        🗑️ Supprimer
-    </a>
-
-</div>
-            <hr>
-
-            <div class="row">
-
-                <div class="col-md-6 mb-3">
-                    <strong>Référence :</strong><br>
-                    <?= htmlspecialchars($dossier['reference'] ?? '') ?>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                    <strong>Propriétaire :</strong><br>
-                    <?= htmlspecialchars($dossier['proprietaire'] ?? '') ?>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                    <strong>Localisation :</strong><br>
-                    <?= htmlspecialchars($dossier['localisation'] ?? '') ?>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                    <strong>Superficie :</strong><br>
-                    <?= htmlspecialchars($dossier['superficie'] ?? '') ?>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                    <strong>Statut :</strong><br>
-                    <?= htmlspecialchars($dossier['statut']) ?>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                    <strong>Date :</strong><br>
-                    <?= htmlspecialchars($dossier['date_dossier'] ?? '') ?>
-                </div>
-
-                <div class="col-12">
-                    <strong>Description :</strong>
-
-                    <p class="mt-2">
-                        <?= nl2br(htmlspecialchars($dossier['description'] ?? '')) ?>
-                    </p>
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-    <div class="card shadow-sm mt-4">
-
-    <div class="card-header">
-        <h4 class="mb-0">
-            📎 Documents du dossier
-        </h4>
-    </div>
-
-    <div class="card-body">
-        <form
-    action="ajouter_document.php"
-    method="POST"
-    enctype="multipart/form-data"
-    class="mb-4"
->
-
-    <input
-        type="hidden"
-        name="dossier_id"
-        value="<?= $dossier['id'] ?>"
-    >
-
-    <label class="form-label">
-        Ajouter des documents
-    </label>
-
-    <div class="input-group">
-
-        <input
-            type="file"
-            name="documents[]"
-            class="form-control"
-            multiple
-            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
-        >
-
-        <button
-            type="submit"
-            class="btn btn-success"
-        >
-            📎 Ajouter
-        </button>
-
-    </div>
-
-    <small class="text-muted">
-        PDF, Word, Excel et images.
-    </small>
-
-</form>
-
-        <?php if (empty($documents)): ?>
-
-            <div class="alert alert-info mb-0">
-                Aucun document n'est associé à ce dossier.
-            </div>
-
-        <?php else: ?>
-
-            <div class="list-group">
-
-                <?php foreach ($documents as $document): ?>
-
-                    <div class="list-group-item">
-
-                        <div class="d-flex justify-content-between align-items-center">
-
-                            <div>
-
-                                <?php
-                                $extension = strtolower(
-                                    pathinfo(
-                                        $document['nom_original'],
-                                        PATHINFO_EXTENSION
-                                    )
-                                );
-
-                                if ($extension === 'pdf') {
-                                    echo '📕';
-                                } elseif (
-                                    in_array(
-                                        $extension,
-                                        ['jpg', 'jpeg', 'png'],
-                                        true
-                                    )
-                                ) {
-                                    echo '🖼️';
-                                } elseif (
-                                    in_array(
-                                        $extension,
-                                        ['doc', 'docx'],
-                                        true
-                                    )
-                                ) {
-                                    echo '📘';
-                                } elseif (
-                                    in_array(
-                                        $extension,
-                                        ['xls', 'xlsx'],
-                                        true
-                                    )
-                                ) {
-                                    echo '📊';
-                                } else {
-                                    echo '📄';
-                                }
-                                ?>
-
-                                <strong>
-                                    <?= htmlspecialchars(
-                                        $document['nom_original']
-                                    ) ?>
-                                </strong>
-
-                                <small class="text-muted ms-2">
-
-                                    <?= round(
-                                        ((int) $document['taille']) / 1024,
-                                        1
-                                    ) ?>
-                                    Ko
-
-                                </small>
-
-                            </div>
-
-                            <div>
-
-                                <a
-                                    href="telecharger.php?id=<?= $document['id'] ?>"
-                                    class="btn btn-sm btn-primary"
-                                >
-                                    ⬇️ Télécharger
-                                </a>
-
-                                <?php if ($extension === 'pdf'): ?>
-
-                                    <a
-                                        href="telecharger.php?id=<?= $document['id'] ?>"
-                                        target="_blank"
-                                        class="btn btn-sm btn-outline-secondary"
-                                    >
-                                        👁️ Ouvrir
-                                    </a>
-
-                                <?php endif; ?>
-
-                                <a
-                                    href="supprimer_document.php?id=<?= $document['id'] ?>"
-                                    class="btn btn-sm btn-danger"
-                                    onclick="return confirm(
-                                        'Supprimer ce document ?'
-                                    );"
-                                >
-                                    🗑️
-                                </a>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                <?php endforeach; ?>
-
-            </div>
-
-        <?php endif; ?>
-
-    </div>
-
-</div>
 </div>
 
 </body>

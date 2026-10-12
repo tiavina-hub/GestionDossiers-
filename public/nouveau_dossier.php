@@ -4,478 +4,292 @@ require_login();
 
 require_once __DIR__ . '/../config/database.php';
 
-$type_id = filter_input(INPUT_GET, 'type_id', FILTER_VALIDATE_INT);
+$type_id = (int)($_GET['type_id'] ?? $_POST['type_id'] ?? 0);
 
-if (!$type_id) {
-    die("Type invalide.");
+if ($type_id <= 0) {
+    header('Location: index.php');
+    exit;
 }
 
+/* Informations du type */
 $stmt = $pdo->prepare("
-    SELECT
-        t.id,
+    SELECT 
+        t.id AS type_id,
         t.nom AS type_nom,
-        r.id AS region_id,
-        r.nom AS region_nom
+        f.id AS fitandremana_id,
+        f.nom AS fitandremana_nom,
+        sp.numero_officiel,
+        sp.nom AS sp_nom
     FROM types_dossiers t
-    JOIN regions r ON t.region_id = r.id
+    JOIN fitandremana f ON f.id = t.fitandremana_id
+    JOIN synodam_paritany sp ON sp.id = f.sp_id
     WHERE t.id = ?
 ");
-
 $stmt->execute([$type_id]);
-$type = $stmt->fetch();
+$info = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$type) {
-    die("Type introuvable.");
+if (!$info) {
+    die("Type tsy hita.");
 }
 
-$erreur = null;
+$erreur = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    $reference = trim($_POST['reference'] ?? '');
+    $laharana = trim($_POST['laharana_fitandremana'] ?? '');
+    $tomponny = trim($_POST['tomponny_tany'] ?? '');
+    $fokontany = trim($_POST['fokontany'] ?? '');
+    $kaominina = trim($_POST['kaominina'] ?? '');
+    $distrika = trim($_POST['distrika'] ?? '');
+    $faritra = trim($_POST['faritra'] ?? '');
+    $karazan = $_POST['karazan_tany'] ?? '';
     $titre = trim($_POST['titre'] ?? '');
-    $proprietaire = trim($_POST['proprietaire'] ?? '');
-    $localisation = trim($_POST['localisation'] ?? '');
-    $superficie = trim($_POST['superficie'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $statut = trim($_POST['statut'] ?? 'Actif');
-    $date_dossier = $_POST['date_dossier'] ?? '';
 
     if ($titre === '') {
-
-        $erreur = "Le nom du dossier est obligatoire.";
-
+        $erreur = "Ampidiro ny anaran'ny dossier.";
+    } elseif (!in_array($karazan, [
+        'Titré',
+        'Cadastré',
+        'Karatany',
+        'Taratasin-totra'
+    ], true)) {
+        $erreur = "Safidio ny karazan-tany.";
     } else {
 
-        try {
+        $stmt = $pdo->prepare("
+            INSERT INTO dossiers (
+                type_id,
+                laharana_fitandremana,
+                tomponny_tany,
+                fokontany,
+                kaominina,
+                distrika,
+                faritra,
+                karazan_tany,
+                titre,
+                description,
+                statut,
+                date_dossier
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Mavitrika', CURDATE())
+        ");
 
-            $pdo->beginTransaction();
+        $stmt->execute([
+            $type_id,
+            $laharana,
+            $tomponny,
+            $fokontany,
+            $kaominina,
+            $distrika,
+            $faritra,
+            $karazan,
+            $titre,
+            $description
+        ]);
 
-            $stmt = $pdo->prepare("
-                INSERT INTO dossiers
-                (
-                    type_id,
-                    reference,
-                    titre,
-                    proprietaire,
-                    localisation,
-                    superficie,
-                    description,
-                    statut,
-                    date_dossier
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ");
+        $id = $pdo->lastInsertId();
 
-            $stmt->execute([
-                $type_id,
-                $reference !== '' ? $reference : null,
-                $titre,
-                $proprietaire !== '' ? $proprietaire : null,
-                $localisation !== '' ? $localisation : null,
-                $superficie !== '' ? $superficie : null,
-                $description !== '' ? $description : null,
-                $statut !== '' ? $statut : 'Actif',
-                $date_dossier !== '' ? $date_dossier : null
-            ]);
-
-            $dossier_id = (int) $pdo->lastInsertId();
-
-            /*
-             * Gestion des fichiers
-             */
-            if (
-                isset($_FILES['documents']) &&
-                is_array($_FILES['documents']['name'])
-            ) {
-
-                $dossierDir =
-                    __DIR__ .
-                    '/../storage/uploads/' .
-                    $dossier_id;
-
-                if (!is_dir($dossierDir)) {
-                    mkdir($dossierDir, 0750, true);
-                }
-
-                $extensionsAutorisees = [
-                    'pdf',
-                    'doc',
-                    'docx',
-                    'jpg',
-                    'jpeg',
-                    'png',
-                    'xls',
-                    'xlsx'
-                ];
-
-                $mimeAutorises = [
-                    'application/pdf',
-
-                    'application/msword',
-                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-
-                    'image/jpeg',
-                    'image/png',
-
-                    'application/vnd.ms-excel',
-                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                ];
-
-                $finfo = new finfo(FILEINFO_MIME_TYPE);
-
-                $nombreFichiers = count($_FILES['documents']['name']);
-
-                for ($i = 0; $i < $nombreFichiers; $i++) {
-
-                    if ($_FILES['documents']['error'][$i] !== UPLOAD_ERR_OK) {
-                        continue;
-                    }
-
-                    $nomOriginal =
-                        basename($_FILES['documents']['name'][$i]);
-
-                    $taille =
-                        (int) $_FILES['documents']['size'][$i];
-
-                    $tmp =
-                        $_FILES['documents']['tmp_name'][$i];
-
-                    $extension =
-                        strtolower(
-                            pathinfo(
-                                $nomOriginal,
-                                PATHINFO_EXTENSION
-                            )
-                        );
-
-                    $mime =
-                        $finfo->file($tmp);
-
-                    if (
-                        !in_array($extension, $extensionsAutorisees, true) ||
-                        !in_array($mime, $mimeAutorises, true)
-                    ) {
-                        continue;
-                    }
-
-                    $nomStockage =
-                        bin2hex(random_bytes(16)) .
-                        '.' .
-                        $extension;
-
-                    $destination =
-                        $dossierDir .
-                        '/' .
-                        $nomStockage;
-
-                    if (
-                        move_uploaded_file(
-                            $tmp,
-                            $destination
-                        )
-                    ) {
-
-                        $chemin =
-                            'storage/uploads/' .
-                            $dossier_id .
-                            '/' .
-                            $nomStockage;
-
-                        $stmtDoc = $pdo->prepare("
-                            INSERT INTO documents
-                            (
-                                dossier_id,
-                                nom_original,
-                                nom_stockage,
-                                chemin,
-                                type_fichier,
-                                taille
-                            )
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        ");
-
-                        $stmtDoc->execute([
-                            $dossier_id,
-                            $nomOriginal,
-                            $nomStockage,
-                            $chemin,
-                            $mime,
-                            $taille
-                        ]);
-                    }
-                }
-            }
-
-            $pdo->commit();
-
-            header(
-                'Location: type.php?id=' .
-                $type_id .
-                '&success=1'
-            );
-
-            exit;
-
-        } catch (Throwable $e) {
-
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
-
-            $erreur = "Erreur lors de l'enregistrement du dossier.";
-        }
+        header("Location: voir_dossier.php?id=" . $id);
+        exit;
     }
 }
-
 ?>
 
 <!DOCTYPE html>
-<html lang="fr">
-
+<html lang="mg">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <meta charset="UTF-8">
+<title>Hanampy dossier TANY</title>
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+}
 
-    <title>Nouveau dossier</title>
+header {
+    background: #1f2937;
+    color: white;
+    padding: 20px 30px;
+}
 
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    >
+.container {
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 0 20px;
+}
 
+.form {
+    background: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+
+.form-group {
+    margin-bottom: 18px;
+}
+
+label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 7px;
+}
+
+input, select, textarea {
+    width: 100%;
+    padding: 11px;
+    border: 1px solid #ccc;
+    border-radius: 7px;
+    font-size: 15px;
+}
+
+textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+button {
+    background: #2563eb;
+    color: white;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.erreur {
+    background: #fee2e2;
+    color: #991b1b;
+    padding: 12px;
+    border-radius: 7px;
+    margin-bottom: 20px;
+}
+
+@media(max-width:700px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
 </head>
 
-<body class="bg-light">
+<body>
 
-<div class="container py-5">
-
-    <a
-        href="type.php?id=<?= $type['id'] ?>"
-        class="btn btn-secondary mb-4"
-    >
-        ← Retour
-    </a>
-
-    <div class="mb-4">
-
-        <p class="text-muted">
-            📍 <?= htmlspecialchars($type['region_nom']) ?>
-            →
-            📂 <?= htmlspecialchars($type['type_nom']) ?>
-        </p>
-
-        <h1>➕ Nouveau dossier</h1>
-
+<header>
+    <h1>Hanampy dossier TANY</h1>
+    <div>
+        <?= htmlspecialchars($info['fitandremana_nom']) ?>
     </div>
+</header>
 
-    <?php if ($erreur): ?>
+<div class="container">
 
-        <div class="alert alert-danger">
-            <?= htmlspecialchars($erreur) ?>
-        </div>
+    <div class="form">
 
-    <?php endif; ?>
+        <?php if ($erreur): ?>
+            <div class="erreur">
+                <?= htmlspecialchars($erreur) ?>
+            </div>
+        <?php endif; ?>
 
-    <form
-        method="POST"
-        enctype="multipart/form-data"
-    >
+        <form method="post">
 
-        <div class="card shadow-sm mb-4">
+            <input type="hidden"
+                   name="type_id"
+                   value="<?= $type_id ?>">
 
-            <div class="card-header">
-                <h4 class="mb-0">
-                    Informations du dossier
-                </h4>
+            <div class="form-group">
+                <label>Laharana Fitandremana</label>
+                <input type="text"
+                       name="laharana_fitandremana"
+                       placeholder="Ohatra: 001/2026">
             </div>
 
-            <div class="card-body">
+            <div class="form-group">
+                <label>Tompon'ny tany *</label>
+                <input type="text"
+                       name="tomponny_tany"
+                       required>
+            </div>
 
-                <div class="row">
+            <div class="grid">
 
-                    <div class="col-md-6 mb-3">
+                <div class="form-group">
+                    <label>Fokontany</label>
+                    <input type="text" name="fokontany">
+                </div>
 
-                        <label class="form-label">
-                            Référence
-                        </label>
+                <div class="form-group">
+                    <label>Kaominina</label>
+                    <input type="text" name="kaominina">
+                </div>
 
-                        <input
-                            type="text"
-                            name="reference"
-                            class="form-control"
-                            placeholder="Ex : PROP-2026-001"
-                        >
+                <div class="form-group">
+                    <label>Distrika</label>
+                    <input type="text" name="distrika">
+                </div>
 
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-
-                        <label class="form-label">
-                            Statut
-                        </label>
-
-                        <select
-                            name="statut"
-                            class="form-select"
-                        >
-                            <option value="Actif">Actif</option>
-                            <option value="En cours">En cours</option>
-                            <option value="Archivé">Archivé</option>
-                        </select>
-
-                    </div>
-
-                    <div class="col-md-12 mb-3">
-
-                        <label class="form-label">
-                            Nom du dossier *
-                        </label>
-
-                        <input
-                            type="text"
-                            name="titre"
-                            class="form-control"
-                            required
-                            placeholder="Ex : Terrain LOVASOA-C"
-                        >
-
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-
-                        <label class="form-label">
-                            Nom du propriétaire
-                        </label>
-
-                        <input
-                            type="text"
-                            name="proprietaire"
-                            class="form-control"
-                            placeholder="Ex : Jean Rakoto"
-                        >
-
-                    </div>
-
-                    <div class="col-md-6 mb-3">
-
-                        <label class="form-label">
-                            Superficie
-                        </label>
-
-                        <input
-                            type="text"
-                            name="superficie"
-                            class="form-control"
-                            placeholder="Ex : 02ha 20a"
-                        >
-
-                    </div>
-
-                    <div class="col-md-12 mb-3">
-
-                        <label class="form-label">
-                            Localisation
-                        </label>
-
-                        <input
-                            type="text"
-                            name="localisation"
-                            class="form-control"
-                            placeholder="Ex : Mahazoarivo, Antananarivo"
-                        >
-
-                    </div>
-
-                    <div class="col-md-4 mb-3">
-
-                        <label class="form-label">
-                            Date du dossier
-                        </label>
-
-                        <input
-                            type="date"
-                            name="date_dossier"
-                            class="form-control"
-                        >
-
-                    </div>
-
-                    <div class="col-md-12 mb-3">
-
-                        <label class="form-label">
-                            Description
-                        </label>
-
-                        <textarea
-                            name="description"
-                            class="form-control"
-                            rows="4"
-                            placeholder="Informations complémentaires..."
-                        ></textarea>
-
-                    </div>
-
+                <div class="form-group">
+                    <label>Faritra</label>
+                    <input type="text" name="faritra">
                 </div>
 
             </div>
 
-        </div>
+            <div class="form-group">
+                <label>Karazan-tany *</label>
 
-        <div class="card shadow-sm mb-4">
+                <select name="karazan_tany" required>
 
-            <div class="card-header">
-                <h4 class="mb-0">
-                    📎 Documents
-                </h4>
+                    <option value="">-- Safidio --</option>
+
+                    <option value="Titré">Titré</option>
+
+                    <option value="Cadastré">Cadastré</option>
+
+                    <option value="Karatany">Karatany</option>
+
+                    <option value="Taratasin-totra">
+                        Taratasin-totra
+                    </option>
+
+                </select>
             </div>
 
-            <div class="card-body">
+            <div class="form-group">
+                <label>Anaran'ny dossier *</label>
 
-                <p class="text-muted">
-                    Vous pouvez ajouter plusieurs fichiers.
-                </p>
-
-                <input
-                    type="file"
-                    name="documents[]"
-                    class="form-control"
-                    multiple
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
-                >
-
-                <small class="text-muted">
-                    PDF, Word, Excel et images.
-                </small>
-
+                <input type="text"
+                       name="titre"
+                       placeholder="Ohatra: Tany FJKM..."
+                       required>
             </div>
 
-        </div>
+            <div class="form-group">
+                <label>Fanazavana</label>
 
-        <div class="d-flex gap-2">
+                <textarea name="description"></textarea>
+            </div>
 
-            <a
-                href="type.php?id=<?= $type['id'] ?>"
-                class="btn btn-secondary"
-            >
-                Annuler
-            </a>
-
-            <button
-                type="submit"
-                class="btn btn-success"
-            >
-                💾 Enregistrer le dossier
+            <button type="submit">
+                💾 Tehirizo ny dossier
             </button>
 
-        </div>
+        </form>
 
-    </form>
+    </div>
 
 </div>
 
