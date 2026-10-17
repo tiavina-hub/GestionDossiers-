@@ -1,23 +1,20 @@
 <?php
 require_once __DIR__ . '/../config/auth.php';
 require_login();
-
 require_once __DIR__ . '/../config/database.php';
 
-$sp_id = isset($_GET['sp_id']) ? (int)$_GET['sp_id'] : 0;
+$sp_id = isset($_GET['sp_id']) ? (int) $_GET['sp_id'] : 0;
 
 if ($sp_id <= 0) {
     header('Location: index.php');
     exit;
 }
 
-/* Informations du SP */
 $stmt = $pdo->prepare("
     SELECT id, numero, numero_officiel, nom
     FROM synodam_paritany
     WHERE id = ?
 ");
-
 $stmt->execute([$sp_id]);
 $sp = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -26,163 +23,344 @@ if (!$sp) {
     exit;
 }
 
-/* Fitandremana de ce SP */
 $stmt = $pdo->prepare("
-    SELECT
-        id,
-        numero,
-        nom,
-        statut_source,
-        observation
+    SELECT id, numero, nom, statut_source, observation
     FROM fitandremana
     WHERE sp_id = ?
     ORDER BY id ASC
 ");
-
 $stmt->execute([$sp_id]);
 $fitandremana = $stmt->fetchAll(PDO::FETCH_ASSOC);
-?>
 
+$totalFit = count($fitandremana);
+?>
 <!DOCTYPE html>
 <html lang="mg">
 <head>
-
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fitandremana - <?= htmlspecialchars($sp['nom'], ENT_QUOTES, 'UTF-8') ?></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #173b68;
+            --background: #f4f7fb;
+            --muted: #738198;
+        }
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+        body {
+            background: var(--background);
+            color: #172b4d;
+            font-family: Inter, "Segoe UI", Arial, sans-serif;
+        }
 
-    <title>
-        Fitandremana - <?= htmlspecialchars($sp['nom']) ?>
-    </title>
+        .topbar {
+            background: white;
+            border-bottom: 1px solid #e7edf5;
+            padding: 16px 0;
+        }
 
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    >
+        .brand-mark {
+            width: 42px;
+            height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 13px;
+            background: var(--primary);
+            color: white;
+            font-size: 21px;
+        }
 
+        .main {
+            max-width: 1450px;
+            margin: auto;
+            padding: 30px 24px 48px;
+        }
+
+        .back-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 22px;
+        }
+
+        .hero {
+            background: linear-gradient(120deg, #173b68, #285a91);
+            color: white;
+            border-radius: 20px;
+            padding: 28px;
+            margin-bottom: 25px;
+        }
+
+        .hero h1 {
+            font-size: clamp(24px, 3vw, 32px);
+            font-weight: 800;
+            margin-bottom: 8px;
+        }
+
+        .hero p {
+            color: #d9e6f7;
+            margin-bottom: 0;
+        }
+
+        .summary {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding: 12px 15px;
+            border: 1px solid rgba(255,255,255,.25);
+            background: rgba(255,255,255,.1);
+            border-radius: 12px;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin: 30px 0 20px;
+        }
+
+        .toolbar h2 {
+            font-size: 21px;
+            font-weight: 750;
+            margin-bottom: 4px;
+        }
+
+        .toolbar p {
+            color: var(--muted);
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .search {
+            max-width: 370px;
+            width: 100%;
+            border: 1px solid #dfe6f0;
+            border-radius: 11px;
+            padding: 12px 14px;
+            background: white;
+        }
+
+        .fit-card {
+            height: 100%;
+            border: 1px solid #e5ebf4;
+            border-radius: 16px;
+            background: white;
+            transition: .2s;
+            overflow: hidden;
+        }
+
+        .fit-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 25px rgba(25,48,80,.08);
+        }
+
+        .fit-card .card-body {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .fit-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 17px;
+        }
+
+        .fit-icon {
+            width: 43px;
+            height: 43px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 12px;
+            background: #eaf1fb;
+            font-size: 21px;
+        }
+
+        .fit-number {
+            background: #edf2f8;
+            color: #536781;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .fit-name {
+            font-size: 17px;
+            font-weight: 750;
+            line-height: 1.45;
+            overflow-wrap: anywhere;
+            margin-bottom: 10px;
+        }
+
+        .fit-status {
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 17px;
+        }
+
+        .fit-card .btn {
+            margin-top: auto;
+            background: var(--primary);
+            border-color: var(--primary);
+            border-radius: 10px;
+            padding: 10px;
+            font-weight: 650;
+        }
+
+        .empty {
+            background: white;
+            border: 1px dashed #ccd6e5;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            color: var(--muted);
+        }
+
+        @media (max-width: 576px) {
+            .main { padding: 22px 14px 35px; }
+            .hero { padding: 23px 20px; }
+        }
+    </style>
 </head>
+<body>
 
-<body class="bg-light">
-
-<div class="container pt-3">
-
-    <div class="d-flex justify-content-between">
-
-        <span class="text-muted">
-            👤
-            <?= htmlspecialchars(
-                $_SESSION['nom_complet'] ?? $_SESSION['username'] ?? ''
-            ) ?>
-        </span>
-
-        <a
-            href="logout.php"
-            class="btn btn-outline-danger btn-sm"
-        >
-            Hivoaka
-        </a>
-
-    </div>
-
-</div>
-
-
-<div class="container py-4">
-
-    <div class="mb-4">
-
-        <a
-            href="sp.php?numero=<?= urlencode($sp['numero_officiel']) ?>"
-            class="btn btn-outline-secondary"
-        >
-            ← Hiverina
-        </a>
-
-    </div>
-
-
-    <div class="mb-5">
-
-        <h1 class="fw-bold">
-            SP <?= htmlspecialchars($sp['numero_officiel']) ?>
-        </h1>
-
-        <h4 class="text-primary">
-            <?= htmlspecialchars($sp['nom']) ?>
-        </h4>
-
-        <p class="text-muted">
-            Safidio ny Fitandremana
-        </p>
-
-    </div>
-
-
-    <?php if (!$fitandremana): ?>
-
-        <div class="alert alert-warning">
-            Tsy mbola misy Fitandremana voasoratra ho an'ity SP ity.
+<header class="topbar">
+    <div class="container-fluid px-3 px-lg-5 d-flex justify-content-between align-items-center gap-3">
+        <div class="d-flex align-items-center gap-2">
+            <div class="brand-mark">✦</div>
+            <div>
+                <div class="fw-bold">FJKM · Fitantanana</div>
+                <div class="text-secondary small">Fitantanana antontan-taratasy</div>
+            </div>
         </div>
 
-    <?php else: ?>
+        <div class="d-flex align-items-center gap-3">
+            <span class="d-none d-sm-inline text-secondary small">
+                👤 <?= htmlspecialchars(
+                    $_SESSION['nom_complet'] ?? $_SESSION['username'] ?? '',
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>
+            </span>
+            <a href="logout.php" class="btn btn-outline-danger btn-sm">Hivoaka ↗</a>
+        </div>
+    </div>
+</header>
 
-        <div class="row g-3">
+<main class="main">
+    <a href="sp.php?numero=<?= urlencode($sp['numero_officiel']) ?>" class="back-link">
+        ← Hiverina amin'ny SP
+    </a>
 
-            <?php foreach ($fitandremana as $fit): ?>
+    <section class="hero">
+        <h1>SP <?= htmlspecialchars($sp['numero_officiel'], ENT_QUOTES, 'UTF-8') ?></h1>
+        <p><?= htmlspecialchars($sp['nom'], ENT_QUOTES, 'UTF-8') ?></p>
+        <div class="summary">
+            <span>📁</span>
+            <strong><?= number_format($totalFit, 0, ',', ' ') ?> Fitandremana</strong>
+        </div>
+    </section>
 
-                <div class="col-md-6 col-lg-4">
+    <section>
+        <div class="toolbar">
+            <div>
+                <h2>Lisitry ny Fitandremana</h2>
+                <p>Safidio ny Fitandremana hijerena ireo karazana dossiers.</p>
+            </div>
+            <input id="fitSearch" class="search" type="search"
+                   placeholder="Karohy amin'ny anarana na laharana..."
+                   aria-label="Karohy Fitandremana">
+        </div>
 
-                    <div class="card shadow-sm h-100">
+        <?php if (!$fitandremana): ?>
+            <div class="empty">
+                Tsy mbola misy Fitandremana voasoratra ho an'ity SP ity.
+            </div>
+        <?php else: ?>
+            <div class="row g-3" id="fitList">
+                <?php foreach ($fitandremana as $fit): ?>
+                    <div class="col-12 col-sm-6 col-lg-4 col-xl-3 fit-item">
+                        <article class="fit-card">
+                            <div class="card-body">
+                                <div class="fit-top">
+                                    <div class="fit-icon">📁</div>
+                                    <span class="fit-number">
+                                        N° <?= htmlspecialchars(
+                                            (string) ($fit['numero'] ?? '—'),
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>
+                                    </span>
+                                </div>
 
-                        <div class="card-body">
+                                <h3 class="fit-name">
+                                    <?= nl2br(htmlspecialchars(
+                                        $fit['nom'],
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    )) ?>
+                                </h3>
 
-                            <div class="mb-2">
+                                <div class="fit-status">
+                                    <?php if (!empty($fit['statut_source'])): ?>
+                                        Statut : <?= htmlspecialchars(
+                                            $fit['statut_source'],
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        ) ?>
+                                    <?php else: ?>
+                                        Fitandremana
+                                    <?php endif; ?>
+                                </div>
 
-                                <span class="badge bg-secondary">
-                                    <?= htmlspecialchars($fit['numero']) ?>
-                                </span>
-
+                                <a href="type.php?fitandremana_id=<?= (int) $fit['id'] ?>"
+                                   class="btn btn-primary">
+                                    Hijery karazana dossiers →
+                                </a>
                             </div>
-
-                            <h5 class="card-title">
-                                <?= nl2br(
-                                    htmlspecialchars($fit['nom'])
-                                ) ?>
-                            </h5>
-
-                            <?php if (!empty($fit['statut_source'])): ?>
-
-                                <p class="small text-muted">
-                                    <?= htmlspecialchars(
-                                        $fit['statut_source']
-                                    ) ?>
-                                </p>
-
-                            <?php endif; ?>
-
-                            <a
-                                href="type.php?fitandremana_id=<?= (int)$fit['id'] ?>"
-                                class="btn btn-primary"
-                            >
-                                Hijery karazana dossiers →
-                            </a>
-
-                        </div>
-
+                        </article>
                     </div>
+                <?php endforeach; ?>
+            </div>
 
-                </div>
+            <div id="emptySearch" class="empty mt-3" style="display:none">
+                Tsy misy Fitandremana mifanaraka amin'ny fikarohana.
+            </div>
+        <?php endif; ?>
+    </section>
+</main>
 
-            <?php endforeach; ?>
+<script>
+const fitSearch = document.getElementById('fitSearch');
+if (fitSearch) {
+    fitSearch.addEventListener('input', function () {
+        const query = this.value.trim().toLowerCase();
+        const items = document.querySelectorAll('.fit-item');
+        let visible = 0;
 
-        </div>
+        items.forEach(function (item) {
+            const match = item.textContent.toLowerCase().includes(query);
+            item.style.display = match ? '' : 'none';
+            if (match) visible++;
+        });
 
-    <?php endif; ?>
-
-</div>
+        const empty = document.getElementById('emptySearch');
+        if (empty) {
+            empty.style.display = visible === 0 ? 'block' : 'none';
+        }
+    });
+}
+</script>
 
 </body>
 </html>
