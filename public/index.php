@@ -377,11 +377,8 @@ foreach ($sps as $sp) {
 <main class="main-content">
 
     <section class="welcome-panel">
-        <h1>Dashboard</h1>
-        <p>
-            Tongasoa eto amin'ny rafitra fitantanana ny antontan-taratasy FJKM.
-            Safidio ny Synodam-Paritany tianao hojerena.
-        </p>
+        <h1>Tongasoa eto amin'ny rafitra fitantanana ny antontan-taratasy FJKM.
+            Safidio ny Synodam-Paritany tianao hojerena.</h1>
 
         <div class="welcome-actions">
             <a href="recherche.php" class="btn btn-light">
@@ -409,7 +406,7 @@ foreach ($sps as $sp) {
                 <div class="stat-number">
                     <?= number_format($totalSP, 0, ',', ' ') ?>
                 </div>
-                <div class="text-secondary small">SP affichés</div>
+                <!-- <div class="text-secondary small">SP affichés</div> -->
             </div>
         </div>
 
@@ -422,7 +419,7 @@ foreach ($sps as $sp) {
                 <div class="stat-number">
                     <?= number_format($totalFitandremana, 0, ',', ' ') ?>
                 </div>
-                <div class="text-secondary small">Total des entrées</div>
+                <!-- <div class="text-secondary small">Total des entrées</div> -->
             </div>
         </div>
 
@@ -435,7 +432,7 @@ foreach ($sps as $sp) {
                 <div class="stat-number">
                     <?= number_format($totalParties, 0, ',', ' ') ?>
                 </div>
-                <div class="text-secondary small">Enregistrements des SP</div>
+                <!-- <div class="text-secondary small">Enregistrements des SP</div> -->
             </div>
         </div>
     </section>
