@@ -1,4 +1,3 @@
-
 <?php
 require_once __DIR__ . '/../config/auth.php';
 require_login();
@@ -31,6 +30,24 @@ $dossier = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$dossier) {
     http_response_code(404);
     exit('Dossier tsy hita.');
+}
+
+$typeCode = strtoupper(trim((string)($dossier['type_nom'] ?? 'TANY')));
+$details = [];
+if ($typeCode === 'TRANO') {
+    $detailStmt = $pdo->prepare('SELECT * FROM dossiers_trano WHERE dossier_id = ?');
+    $detailStmt->execute([$id]);
+    $details = $detailStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+} elseif ($typeCode === 'FIARA') {
+    $detailStmt = $pdo->prepare('SELECT * FROM dossiers_fiara WHERE dossier_id = ?');
+    $detailStmt->execute([$id]);
+    $details = $detailStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    $ligneStmt = $pdo->prepare('SELECT * FROM lignes_fiara WHERE dossier_id = ? ORDER BY numero ASC, id ASC');
+    $ligneStmt->execute([$id]);
+    $lignesFiara = $ligneStmt->fetchAll(PDO::FETCH_ASSOC);
+    $totalSol = 0;
+    $totalRep = 0;
+    foreach ($lignesFiara as $ligne) { $totalSol += (float)$ligne['cout_remplacement']; $totalRep += (float)$ligne['cout_reparation']; }
 }
 
 $stmt = $pdo->prepare("
@@ -68,7 +85,7 @@ $documentDeleted = isset($_GET['document_deleted']);
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= e($dossier['titre']) ?> | Dossier TANY</title>
+<title><?= e($dossier['titre']) ?> | Dossier <?= e($dossier['type_nom']) ?></title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial,sans-serif;background:#f3f6fb;color:#172033}
@@ -113,7 +130,7 @@ td form{display:inline}
 <body>
 <header>
     <h1>Fitantanana ny antontan-taratasy FJKM</h1>
-    <p>Consultation et gestion du dossier foncier</p>
+    <p>Consultation et gestion du dossier <?= e($dossier['type_nom']) ?></p>
 </header>
 
 <main class="container">
@@ -160,31 +177,67 @@ td form{display:inline}
         <h2><?= e($dossier['titre']) ?></h2>
         <p>
             <span class="badge"><?= afficher($dossier['statut']) ?></span>
-            <span class="badge"><?= afficher($dossier['karazan_tany']) ?></span>
+            <span class="badge"><?= e($dossier['type_nom']) ?></span>
         </p>
 
         <h3>Fampahalalana ankapobeny</h3>
         <div class="grid">
             <div class="field"><small>Anaran'ny dossier</small><strong><?= afficher($dossier['titre']) ?></strong></div>
             <div class="field"><small>Laharana Fitandremana</small><strong><?= afficher($dossier['laharana_fitandremana']) ?></strong></div>
-            <div class="field"><small>Tompon'ny tany</small><strong><?= afficher($dossier['tomponny_tany']) ?></strong></div>
-            <div class="field"><small>Karazan-tany</small><strong><?= afficher($dossier['karazan_tany']) ?></strong></div>
             <div class="field"><small>SP</small><strong><?= e($dossier['numero_officiel']) ?> — <?= e($dossier['sp_nom']) ?></strong></div>
             <div class="field"><small>Fitandremana</small><strong><?= e($dossier['fitandremana_nom']) ?></strong></div>
             <div class="field"><small>Type de dossier</small><strong><?= e($dossier['type_nom']) ?></strong></div>
             <div class="field"><small>Date du dossier</small><strong><?= afficher($dossier['date_dossier']) ?></strong></div>
         </div>
 
-        <h3>Toerana misy ny tany</h3>
-        <div class="grid">
-            <div class="field"><small>Fokontany</small><strong><?= afficher($dossier['fokontany']) ?></strong></div>
-            <div class="field"><small>Kaominina</small><strong><?= afficher($dossier['kaominina']) ?></strong></div>
-            <div class="field"><small>Distrika</small><strong><?= afficher($dossier['distrika']) ?></strong></div>
-            <div class="field"><small>Faritra</small><strong><?= afficher($dossier['faritra']) ?></strong></div>
-        </div>
-
-        <h3>Fanazavana fanampiny</h3>
-        <div class="field"><strong><?= afficher($dossier['description']) ?></strong></div>
+        <?php if ($typeCode === 'TRANO'): ?>
+            <h3>Fampahalalana momba ny trano / bail</h3>
+            <div class="grid">
+                <div class="field"><small>Ny Mpanofa</small><strong><?= afficher($details['mpanofa'] ?? null) ?></strong></div>
+                <div class="field"><small>Toerana</small><strong><?= afficher($details['toerana'] ?? null) ?></strong></div>
+                <div class="field"><small>Habe</small><strong><?= afficher($details['habe'] ?? null) ?></strong></div>
+                <div class="field"><small>Asa / fampiasana</small><strong><?= afficher($details['asa'] ?? null) ?></strong></div>
+                <div class="field"><small>Daty fanombohana</small><strong><?= afficher($details['daty_debut'] ?? null) ?></strong></div>
+                <div class="field"><small>Daty fiafarana</small><strong><?= afficher($details['daty_fin'] ?? null) ?></strong></div>
+                <div class="field"><small>Hofany (MGA)</small><strong><?= isset($details['hofany']) && $details['hofany'] !== null ? number_format((float)$details['hofany'], 2, ',', ' ') . ' Ar' : '—' ?></strong></div>
+                <div class="field"><small>Caution (MGA)</small><strong><?= isset($details['caution']) && $details['caution'] !== null ? number_format((float)$details['caution'], 2, ',', ' ') . ' Ar' : '—' ?></strong></div>
+                <div class="field"><small>Situation / fepetra</small><strong><?= afficher($details['situation'] ?? null) ?></strong></div>
+                <div class="field"><small>Avenants / fanavaozana</small><strong><?= afficher($details['avenants'] ?? null) ?></strong></div>
+            </div>
+        <?php elseif ($typeCode === 'FIARA'): ?>
+            <h3>Fampahalalana momba ny fiara</h3>
+            <div class="grid">
+                <div class="field"><small>Fiara / désignation</small><strong><?= afficher($details['fiara'] ?? null) ?></strong></div>
+                <div class="field"><small>Marque / modèle</small><strong><?= afficher($details['marque_modele'] ?? null) ?></strong></div>
+                <div class="field"><small>Immatriculation</small><strong><?= afficher($details['immatriculation'] ?? null) ?></strong></div>
+                <div class="field"><small>Kilométrage</small><strong><?= isset($details['kilometrage']) && $details['kilometrage'] !== null ? number_format((int)$details['kilometrage'], 0, ',', ' ') . ' km' : '—' ?></strong></div>
+                <div class="field"><small>Date du rapport</small><strong><?= afficher($details['date_rapport'] ?? null) ?></strong></div>
+                <div class="field"><small>Notes</small><strong><?= afficher($details['notes'] ?? null) ?></strong></div>
+            </div>
+            <h3>Pièces et réparations</h3>
+            <?php if (empty($lignesFiara)): ?>
+                <div class="empty">Aucune pièce enregistrée pour ce rapport.</div>
+            <?php else: ?>
+                <div class="table-wrap"><table><thead><tr><th>Lah.</th><th>FITAOVANA</th><th>SOLOINA (MGA)</th><th>AMBOARINA (MGA)</th><th>FANAMARIHANA</th></tr></thead><tbody>
+                <?php foreach ($lignesFiara as $ligne): ?>
+                    <tr><td><?= afficher($ligne['numero'] ?? null) ?></td><td><?= afficher($ligne['piece']) ?></td><td><?= number_format((float)$ligne['cout_remplacement'], 2, ',', ' ') ?></td><td><?= number_format((float)$ligne['cout_reparation'], 2, ',', ' ') ?></td><td><?= afficher($ligne['remarque'] ?? null) ?></td></tr>
+                <?php endforeach; ?>
+                <tr><th colspan="2">TOTAL</th><th><?= number_format($totalSol, 2, ',', ' ') ?> Ar</th><th><?= number_format($totalRep, 2, ',', ' ') ?> Ar</th><td></td></tr>
+                </tbody></table></div>
+            <?php endif; ?>
+        <?php else: ?>
+            <h3>Tompon'ny tany sy toerana</h3>
+            <div class="grid">
+                <div class="field"><small>Tompon'ny tany</small><strong><?= afficher($dossier['tomponny_tany']) ?></strong></div>
+                <div class="field"><small>Karazan-tany</small><strong><?= afficher($dossier['karazan_tany']) ?></strong></div>
+                <div class="field"><small>Fokontany</small><strong><?= afficher($dossier['fokontany']) ?></strong></div>
+                <div class="field"><small>Kaominina</small><strong><?= afficher($dossier['kaominina']) ?></strong></div>
+                <div class="field"><small>Distrika</small><strong><?= afficher($dossier['distrika']) ?></strong></div>
+                <div class="field"><small>Faritra</small><strong><?= afficher($dossier['faritra']) ?></strong></div>
+            </div>
+            <h3>Fanazavana fanampiny</h3>
+            <div class="field"><strong><?= afficher($dossier['description']) ?></strong></div>
+        <?php endif; ?>
 
         <h3>Historique</h3>
         <div class="grid">
