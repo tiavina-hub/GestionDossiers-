@@ -42,141 +42,215 @@ $stmt->execute([$type_id]);
 $dossiers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $total = count($dossiers);
+
+function e($value): string {
+    return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
+}
 ?>
 <!DOCTYPE html>
 <html lang="mg">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dossiers TANY | Fitantanana</title>
+<title>Dossiers | Fitantanana FJKM</title>
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:Arial,sans-serif;background:#f3f6fb;color:#172033}
-a{text-decoration:none}
-header{background:linear-gradient(120deg,#142b4a,#1769aa);color:white;padding:26px 5%}
-header h1{margin:0 0 10px;font-size:25px}
-header p{margin:0;color:#e0edff}
-.container{max-width:1250px;margin:25px auto;padding:0 20px}
-.breadcrumb{font-size:14px;color:#64748b;margin-bottom:22px;line-height:2}
-.breadcrumb a{color:#1769aa;font-weight:600}
-.hero{background:white;border-radius:16px;padding:24px;margin-bottom:22px;box-shadow:0 5px 20px #1720330b}
-.hero h2{margin:0 0 12px;font-size:23px}
-.hero p{margin:7px 0;color:#64748b}
-.stats{display:flex;gap:15px;flex-wrap:wrap;margin-top:20px}
-.stat{background:#edf5ff;border-radius:12px;padding:15px 20px;min-width:150px}
-.stat small{display:block;color:#64748b;margin-bottom:6px}
-.stat strong{font-size:23px;color:#1769aa}
-.actions{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:22px 0}
-.btn{display:inline-block;border:0;border-radius:9px;padding:12px 17px;font-weight:600;font-size:14px;cursor:pointer}
-.btn-primary{background:#1769aa;color:white}
-.btn-primary:hover{background:#12548a}
-.btn-secondary{background:white;color:#1769aa;border:1px solid #d8e3f0}
-.search{width:100%;max-width:350px;padding:12px 14px;border:1px solid #d8e0eb;border-radius:9px;font-size:14px}
-.table-wrap{background:white;border-radius:14px;overflow:auto;box-shadow:0 5px 20px #1720330b}
-table{width:100%;border-collapse:collapse;min-width:850px}
-th,td{padding:15px;text-align:left;border-bottom:1px solid #edf0f5;font-size:14px}
-th{background:#f7f9fc;color:#475569;font-size:12px;text-transform:uppercase;letter-spacing:.3px}
-tbody tr:hover{background:#f8fbff}
-.badge{display:inline-block;padding:5px 10px;border-radius:20px;background:#e5f0ff;color:#1769aa;font-weight:600}
-.link{color:#1769aa;font-weight:600}
-.empty{background:white;text-align:center;padding:45px 20px;border-radius:14px;color:#64748b}
-.empty h3{color:#172033}
-@media(max-width:600px){header{padding:22px 20px}header h1{font-size:21px}.container{padding:0 12px}.hero{padding:18px}.actions{align-items:stretch}.search{max-width:none}.btn{ text-align:center}}
+:root {
+    --green: #285744;
+    --dark-green: #1d4032;
+    --soft-green: #e7efe8;
+    --cream: #f7f6f0;
+    --text: #282d29;
+    --muted: #626b64;
+    --border: #dedfd7;
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    font-family: Arial, "Segoe UI", sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    font-size: 18px;
+    line-height: 1.5;
+}
+a { text-decoration: none; }
+header {
+    background: var(--green);
+    color: white;
+    padding: 25px max(20px, calc((100% - 1200px) / 2));
+}
+header h1 { margin: 0 0 7px; font-size: clamp(24px, 3vw, 32px); }
+header p { margin: 0; color: #edf4ed; font-size: 17px; }
+.container { max-width: 1250px; margin: 24px auto 45px; padding: 0 20px; }
+.breadcrumb { font-size: 15px; color: var(--muted); margin-bottom: 22px; line-height: 2; }
+.breadcrumb a { color: var(--dark-green); font-weight: 700; text-decoration: underline; }
+.hero {
+    background: white; border: 1px solid var(--border); border-radius: 17px;
+    padding: 25px; margin-bottom: 24px;
+}
+.hero h2 { margin: 0 0 10px; font-size: 27px; color: var(--dark-green); }
+.hero p { margin: 7px 0; }
+.muted { color: var(--muted); }
+.stats { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 20px; }
+.stat { background: var(--soft-green); border-radius: 12px; padding: 14px 19px; min-width: 155px; }
+.stat small { display: block; color: var(--muted); margin-bottom: 5px; font-size: 15px; }
+.stat strong { color: var(--dark-green); font-size: 23px; }
+.actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 22px 0; }
+.btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-height: 52px; padding: 12px 18px; border-radius: 10px;
+    font-size: 17px; font-weight: 700; cursor: pointer; border: 2px solid transparent;
+}
+.btn-primary { background: var(--green); color: white; }
+.btn-primary:hover { background: var(--dark-green); }
+.search {
+    width: min(100%, 420px); min-height: 52px; padding: 12px 15px;
+    border: 2px solid var(--border); border-radius: 10px; font-size: 17px; background: white;
+}
+.search:focus { outline: 3px solid #d7e5d8; border-color: var(--green); }
+.dossier-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 17px; }
+.dossier-card {
+    display: flex; flex-direction: column; gap: 13px; min-width: 0;
+    background: white; border: 2px solid var(--border); border-radius: 15px;
+    padding: 21px; color: var(--text); transition: .15s ease;
+}
+.dossier-card:hover { border-color: var(--green); transform: translateY(-2px); box-shadow: 0 8px 20px #1d403214; }
+.dossier-card:focus-visible { outline: 3px solid #789b83; outline-offset: 3px; }
+.card-number { color: var(--dark-green); font-size: 23px; font-weight: 800; overflow-wrap: anywhere; }
+.card-owner { font-size: 19px; font-weight: 700; overflow-wrap: anywhere; }
+.card-details { color: var(--muted); font-size: 16px; display: grid; gap: 5px; }
+.card-footer { border-top: 1px solid #ecece6; padding-top: 12px; margin-top: auto; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.badge { display: inline-block; padding: 5px 9px; border-radius: 8px; background: var(--soft-green); color: var(--dark-green); font-size: 14px; font-weight: 700; }
+.open-label { color: var(--dark-green); font-size: 15px; font-weight: 800; }
+.empty { background: white; border: 1px solid var(--border); text-align: center; padding: 38px 20px; border-radius: 15px; }
+.empty h3 { color: var(--dark-green); margin-top: 0; }
+.no-result { display: none; text-align: center; color: var(--muted); padding: 20px; }
+footer { text-align: center; padding: 22px; color: var(--muted); font-size: 14px; }
+@media (max-width: 900px) { .dossier-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+    header { padding: 22px 17px; }
+    .container { padding: 0 13px; margin-top: 18px; }
+    .hero { padding: 19px; }
+    .dossier-grid { grid-template-columns: 1fr; }
+    .actions { align-items: stretch; }
+    .search { width: 100%; max-width: none; }
+    .btn { width: 100%; text-align: center; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
 </style>
 </head>
 <body>
 <header>
     <h1>Fitantanana ny antontan-taratasy FJKM</h1>
-    <p>SP <?= htmlspecialchars((string)$info['numero_officiel']) ?>
-       — <?= htmlspecialchars($info['sp_nom'] ?? '') ?></p>
+    <p>SP <?= e($info['numero_officiel']) ?> — <?= e($info['sp_nom'] ?? '') ?></p>
 </header>
 
 <main class="container">
-    <nav class="breadcrumb">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href="index.php">SP</a> →
-        <a href="sp.php?numero=<?= urlencode((string)$info['numero_officiel']) ?>">
-            SP <?= htmlspecialchars((string)$info['numero_officiel']) ?>
-        </a> →
+        <a href="sp.php?numero=<?= urlencode((string)$info['numero_officiel']) ?>">SP <?= e($info['numero_officiel']) ?></a> →
         <a href="fitandremana.php?sp_id=<?= (int)$info['sp_id'] ?>">Fitandremana</a> →
-        <a href="type.php?fitandremana_id=<?= (int)$info['fitandremana_id'] ?>">
-            <?= htmlspecialchars($info['fitandremana_nom']) ?>
-        </a> → Dossiers
+        <a href="type.php?fitandremana_id=<?= (int)$info['fitandremana_id'] ?>"><?= e($info['fitandremana_nom']) ?></a> →
+        Dossiers
     </nav>
 
     <section class="hero">
-        <h2><?= htmlspecialchars($info['fitandremana_nom']) ?></h2>
-        <p><strong>Karazana :</strong> <?= htmlspecialchars($info['type_nom']) ?></p>
-        <p>Lisitra sy fitantanana ireo dossiers mifandraika amin'ity karazana ity.</p>
+        <h2><?= e($info['fitandremana_nom']) ?></h2>
+        <p><strong>Karazana :</strong> <?= e($info['type_nom']) ?></p>
+        <p class="muted">Lisitra sy fitantanana ireo dossiers mifandraika amin'ity karazana ity.</p>
         <div class="stats">
             <div class="stat">
                 <small>Isan'ny dossiers</small>
-                <strong><?= $total ?></strong>
+                <strong><?= number_format($total, 0, ',', ' ') ?></strong>
             </div>
             <div class="stat">
                 <small>Karazana dossier</small>
-                <strong><?= htmlspecialchars($info['type_nom']) ?></strong>
+                <strong><?= e($info['type_nom']) ?></strong>
             </div>
         </div>
     </section>
 
     <div class="actions">
         <a class="btn btn-primary" href="nouveau_dossier.php?type_id=<?= $type_id ?>">
-            + Hanampy dossier TANY
+            + Hanampy dossier <?= e($info['type_nom']) ?>
         </a>
-        <input class="search" id="search" type="search"
-               placeholder="🔎 Karohy laharana, tompony, fokontany...">
+        <input class="search" id="search" type="search" placeholder="Karohy laharana, tompony, fokontany..." aria-label="Karohy dossier">
     </div>
 
     <?php if (!$dossiers): ?>
         <section class="empty">
-            <h3>Tsy mbola misy dossier TANY.</h3>
+            <h3>Tsy mbola misy dossier.</h3>
             <p>Tsindrio ny bokotra etsy ambony mba hanampiana dossier vaovao.</p>
         </section>
     <?php else: ?>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Laharana</th>
-                        <th>Tompon'ny tany</th>
-                        <th>Fokontany</th>
-                        <th>Kaominina</th>
-                        <th>Karazan-tany</th>
-                        <th>Daty</th>
-                        <th>Hetsika</th>
-                    </tr>
-                </thead>
-                <tbody id="dossierRows">
-                <?php foreach ($dossiers as $dossier): ?>
-                    <tr>
-                        <td><?= htmlspecialchars((string)($dossier['laharana_fitandremana'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars((string)($dossier['tomponny_tany'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars((string)($dossier['fokontany'] ?? '')) ?></td>
-                        <td><?= htmlspecialchars((string)($dossier['kaominina'] ?? '')) ?></td>
-                        <td><span class="badge"><?= htmlspecialchars((string)($dossier['karazan_tany'] ?? '')) ?></span></td>
-                        <td><?= htmlspecialchars((string)($dossier['date_creation'] ?? '')) ?></td>
-                        <td><a class="link" href="voir_dossier.php?id=<?= (int)$dossier['id'] ?>">Voir →</a></td>
-                    </tr>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
+        <div class="dossier-grid" id="dossierGrid">
+            <?php foreach ($dossiers as $dossier): ?>
+                <a class="dossier-card"
+                   href="voir_dossier.php?id=<?= (int)$dossier['id'] ?>"
+                   data-search="<?= e(implode(' ', [
+                       $dossier['laharana_fitandremana'] ?? '',
+                       $dossier['tomponny_tany'] ?? '',
+                       $dossier['fokontany'] ?? '',
+                       $dossier['kaominina'] ?? '',
+                       $dossier['distrika'] ?? '',
+                       $dossier['faritra'] ?? '',
+                       $dossier['karazan_tany'] ?? '',
+                       $dossier['titre'] ?? '',
+                       $dossier['description'] ?? '',
+                       $dossier['statut'] ?? ''
+                   ])) ?>">
+
+                    <div class="card-number">
+                        <?= e($dossier['laharana_fitandremana'] ?? ('Dossier #' . $dossier['id'])) ?>
+                    </div>
+
+                    <div class="card-owner">
+                        <?= e($dossier['tomponny_tany'] ?? $dossier['titre'] ?? 'Dossier') ?>
+                    </div>
+
+                    <div class="card-details">
+                        <?php if (!empty($dossier['fokontany'])): ?>
+                            <div>Fokontany : <?= e($dossier['fokontany']) ?></div>
+                        <?php endif; ?>
+                        <?php if (!empty($dossier['kaominina'])): ?>
+                            <div>Kaominina : <?= e($dossier['kaominina']) ?></div>
+                        <?php endif; ?>
+                        <?php if (!empty($dossier['karazan_tany'])): ?>
+                            <div>Karazan-tany : <?= e($dossier['karazan_tany']) ?></div>
+                        <?php endif; ?>
+                        <?php if (!empty($dossier['date_creation'])): ?>
+                            <div>Daty : <?= e($dossier['date_creation']) ?></div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="card-footer">
+                        <?php if (!empty($dossier['statut'])): ?>
+                            <span class="badge"><?= e($dossier['statut']) ?></span>
+                        <?php else: ?>
+                            <span></span>
+                        <?php endif; ?>
+                        <span class="open-label">Sokafy →</span>
+                    </div>
+                </a>
+            <?php endforeach; ?>
         </div>
-        <p id="noResult" style="display:none;text-align:center;color:#64748b;padding:20px">
-            Aucun dossier ne correspond à cette recherche.
-        </p>
+        <p id="noResult" class="no-result">Tsy misy dossier mifanaraka amin'ny fikarohana.</p>
     <?php endif; ?>
 </main>
+
+<footer>FJKM · Rafitra fitantanana antontan-taratasy</footer>
 
 <script>
 const search = document.getElementById('search');
 if (search) {
     search.addEventListener('input', function () {
-        const query = this.value.toLowerCase().trim();
+        const query = this.value.toLocaleLowerCase().trim();
+        const cards = document.querySelectorAll('.dossier-card');
         let visible = 0;
 
-        document.querySelectorAll('#dossierRows tr').forEach(function (row) {
-            const match = row.textContent.toLowerCase().includes(query);
-            row.style.display = match ? '' : 'none';
+        cards.forEach(function (card) {
+            const searchable = (card.textContent + ' ' + (card.dataset.search || '')).toLocaleLowerCase();
+            const match = searchable.includes(query);
+            card.style.display = match ? '' : 'none';
             if (match) visible++;
         });
 
@@ -187,4 +261,3 @@ if (search) {
 </script>
 </body>
 </html>
-

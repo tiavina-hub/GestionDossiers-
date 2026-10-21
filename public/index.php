@@ -6,17 +6,17 @@ require_once __DIR__ . '/../config/database.php';
 
 $stmt = $pdo->query("
     SELECT
+        sp.id,
         sp.numero_officiel,
         COUNT(DISTINCT sp.id) AS nombre_parties,
-        COUNT(f.id) AS nombre_fitandremana
+        COUNT(DISTINCT f.id) AS nombre_fitandremana
     FROM synodam_paritany sp
     LEFT JOIN fitandremana f ON f.sp_id = sp.id
-    GROUP BY sp.numero_officiel
+    GROUP BY sp.id, sp.numero_officiel
     ORDER BY CAST(sp.numero_officiel AS UNSIGNED) ASC
 ");
 
 $sps = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
 $totalSP = count($sps);
 $totalParties = 0;
 $totalFitandremana = 0;
@@ -25,414 +25,402 @@ foreach ($sps as $sp) {
     $totalParties += (int) $sp['nombre_parties'];
     $totalFitandremana += (int) $sp['nombre_fitandremana'];
 }
+
+function e($value): string {
+    return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8');
+}
 ?>
 <!DOCTYPE html>
 <html lang="mg">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard | Fitantanana FJKM</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accueil | Fitantanana FJKM</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          rel="stylesheet">
+<style>
+:root {
+    --green: #285744;
+    --dark-green: #1d4032;
+    --soft-green: #e7efe8;
+    --cream: #f7f6f0;
+    --text: #282d29;
+    --muted: #626b64;
+    --border: #dedfd7;
+}
+* { box-sizing: border-box; }
 
-    <style>
-        :root {
-            --primary: #173b68;
-            --primary-light: #eaf1fb;
-            --background: #f4f7fb;
-            --text: #172b4d;
-            --muted: #738198;
-        }
+body {
+    margin: 0;
+    background: var(--cream);
+    color: var(--text);
+    font-family: Arial, "Segoe UI", sans-serif;
+    font-size: 18px;
+    line-height: 1.5;
+}
 
-        * { box-sizing: border-box; }
+.topbar {
+    background: white;
+    border-bottom: 2px solid var(--border);
+    padding: 15px 0;
+}
 
-        body {
-            margin: 0;
-            background: var(--background);
-            color: var(--text);
-            font-family: Inter, "Segoe UI", Arial, sans-serif;
-        }
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    text-decoration: none;
+}
 
-        .topbar {
-            background: #fff;
-            border-bottom: 1px solid #e7edf5;
-            padding: 17px 0;
-        }
+.brand-icon {
+    width: 54px;
+    height: 54px;
+    display: grid;
+    place-items: center;
+    background: var(--green);
+    color: white;
+    border-radius: 14px;
+    font-size: 29px;
+}
 
-        .brand-mark {
-            width: 43px;
-            height: 43px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 13px;
-            background: var(--primary);
-            color: white;
-            font-size: 22px;
-            margin-right: 12px;
-        }
+.brand-title {
+    color: var(--dark-green);
+    font-size: 21px;
+    font-weight: 800;
+    margin: 0;
+}
 
-        .brand-title {
-            font-weight: 750;
-            font-size: 16px;
-            margin: 0;
-        }
+.brand-subtitle {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 2px 0 0;
+}
 
-        .brand-subtitle {
-            color: var(--muted);
-            font-size: 12px;
-            margin: 2px 0 0;
-        }
+.logout {
+    display: inline-block;
+    padding: 11px 16px;
+    border: 2px solid #e6caca;
+    border-radius: 10px;
+    color: #8b2828;
+    text-decoration: none;
+    font-weight: bold;
+}
 
-        .main-content {
-            max-width: 1450px;
-            margin: auto;
-            padding: 34px 24px 50px;
-        }
+.logout:hover { background: #fff0f0; }
 
-        .welcome-panel {
-            background: linear-gradient(120deg, #173b68, #285a91);
-            color: white;
-            border-radius: 22px;
-            padding: 32px;
-            position: relative;
-            overflow: hidden;
-            margin-bottom: 28px;
-        }
+main {
+    max-width: 1400px;
+    margin: auto;
+    padding: 28px 22px 40px;
+}
 
-        .welcome-panel::after {
-            content: "";
-            position: absolute;
-            width: 230px;
-            height: 230px;
-            border: 35px solid rgba(255,255,255,.07);
-            border-radius: 50%;
-            right: -50px;
-            top: -95px;
-        }
+.welcome {
+    padding: 30px;
+    border-radius: 18px;
+    background: var(--green);
+    color: white;
+    margin-bottom: 25px;
+}
 
-        .welcome-panel h1 {
-            font-size: clamp(24px, 3vw, 34px);
-            font-weight: 750;
-            margin-bottom: 10px;
-        }
+.welcome h1 {
+    font-size: clamp(26px, 3vw, 35px);
+    font-weight: 800;
+    margin: 0 0 12px;
+}
 
-        .welcome-panel p {
-            color: #d9e6f7;
-            margin: 0;
-        }
+.welcome p {
+    font-size: 18px;
+    margin: 0;
+}
 
-        .welcome-actions {
-            position: relative;
-            z-index: 1;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 24px;
-        }
+.quick-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 22px;
+}
 
-        .welcome-actions .btn {
-            padding: 10px 16px;
-            font-weight: 600;
-            border-radius: 10px;
-        }
+.quick-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 54px;
+    padding: 12px 18px;
+    background: white;
+    color: var(--dark-green);
+    border-radius: 11px;
+    text-decoration: none;
+    font-weight: 800;
+}
 
-        .stat-card {
-            background: #fff;
-            border: 1px solid #e8edf5;
-            border-radius: 17px;
-            padding: 22px;
-            height: 100%;
-            box-shadow: 0 5px 18px rgba(25, 48, 80, .035);
-        }
+.quick-link:hover { background: #e8f0e9; }
 
-        .stat-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 15px;
-        }
+.quick-link.admin {
+    background: transparent;
+    border: 2px solid white;
+    color: white;
+}
 
-        .stat-icon {
-            width: 45px;
-            height: 45px;
-            border-radius: 13px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-        }
+.quick-link.admin:hover { background: rgba(255,255,255,.12); }
 
-        .icon-blue { background: #eaf1ff; }
-        .icon-green { background: #e5f7ee; }
-        .icon-orange { background: #fff1df; }
+.stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 35px;
+}
 
-        .stat-label {
-            color: var(--muted);
-            font-size: 14px;
-            margin-bottom: 5px;
-        }
+.stat {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 15px;
+}
 
-        .stat-number {
-            font-size: 30px;
-            font-weight: 800;
-            letter-spacing: -.7px;
-        }
+.stat-icon {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    background: var(--soft-green);
+    border-radius: 14px;
+    font-size: 28px;
+}
 
-        .section-heading {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 14px;
-            margin: 35px 0 20px;
-        }
+.stat-label { color: var(--muted); font-size: 15px; }
+.stat-number { color: var(--dark-green); font-size: 31px; font-weight: 800; }
 
-        .section-heading h2 {
-            font-size: 22px;
-            font-weight: 750;
-            margin: 0 0 5px;
-        }
+.section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 20px;
+}
 
-        .section-heading p {
-            color: var(--muted);
-            margin: 0;
-            font-size: 14px;
-        }
+.section-heading h2 {
+    font-size: 28px;
+    font-weight: 800;
+    margin: 0 0 5px;
+}
 
-        .search-box {
-            position: relative;
-            min-width: 260px;
-            max-width: 360px;
-            width: 100%;
-        }
+.section-heading p { color: var(--muted); margin: 0; }
 
-        .search-box input {
-            border: 1px solid #dfe6f0;
-            background: #fff;
-            padding: 12px 15px 12px 42px;
-            border-radius: 12px;
-            width: 100%;
-            outline: none;
-        }
+.search-box { width: min(100%, 380px); }
 
-        .search-box input:focus {
-            border-color: #7399ce;
-            box-shadow: 0 0 0 3px rgba(49, 104, 173, .1);
-        }
+.search-box input {
+    width: 100%;
+    min-height: 54px;
+    padding: 12px 15px;
+    border: 2px solid #cfd5cc;
+    border-radius: 11px;
+    font-size: 18px;
+    background: white;
+}
 
-        .search-symbol {
-            position: absolute;
-            left: 14px;
-            top: 11px;
-            color: var(--muted);
-        }
+.search-box input:focus {
+    outline: 3px solid #d9e6da;
+    border-color: var(--green);
+}
 
-        .sp-card {
-            border: 1px solid #e7edf5;
-            border-radius: 17px;
-            background: #fff;
-            height: 100%;
-            overflow: hidden;
-            transition: transform .2s, box-shadow .2s;
-        }
+.sp-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 17px;
+}
 
-        .sp-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 28px rgba(25, 48, 80, .09);
-        }
+.sp-item { min-width: 0; }
 
-        .sp-card-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 20px 20px 0;
-        }
+.sp-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 18px;
+    height: 100%;
+    min-height: 150px;
+    padding: 22px;
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    color: var(--text);
+    text-decoration: none;
+    transition: .15s ease;
+}
 
-        .sp-icon {
-            display: flex;
-            width: 48px;
-            height: 48px;
-            align-items: center;
-            justify-content: center;
-            border-radius: 14px;
-            background: var(--primary-light);
-            color: var(--primary);
-            font-size: 23px;
-        }
+.sp-card:hover {
+    border-color: var(--green);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(29,64,50,.10);
+}
 
-        .sp-badge {
-            background: #edf2f8;
-            color: #536781;
-            padding: 6px 10px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 650;
-        }
+.sp-card:focus-visible {
+    outline: 3px solid #789b83;
+    outline-offset: 3px;
+}
 
-        .sp-card-body {
-            padding: 18px 20px 20px;
-        }
+.sp-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 17px;
+}
 
-        .sp-name {
-            font-size: 20px;
-            font-weight: 800;
-            margin-bottom: 5px;
-        }
+.sp-icon {
+    width: 54px;
+    height: 54px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    background: var(--soft-green);
+    font-size: 28px;
+}
 
-        .sp-description {
-            font-size: 13px;
-            color: var(--muted);
-            margin-bottom: 20px;
-        }
+.sp-badge {
+    background: #f1eee3;
+    color: #5f4b23;
+    border-radius: 9px;
+    padding: 7px 10px;
+    font-size: 14px;
+    font-weight: bold;
+}
 
-        .sp-count {
-            display: flex;
-            align-items: baseline;
-            gap: 7px;
-            margin-bottom: 17px;
-        }
+.sp-name {
+    color: var(--dark-green);
+    font-size: 34px;
+    line-height: 1.2;
+    font-weight: 800;
+}
 
-        .sp-count strong {
-            font-size: 27px;
-            font-weight: 800;
-        }
+.sp-description {
+    color: var(--muted);
+    font-size: 15px;
+    margin: 4px 0 17px;
+}
 
-        .sp-count span {
-            font-size: 13px;
-            color: var(--muted);
-        }
+.sp-count {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding-top: 13px;
+    border-top: 1px solid #ecece6;
+}
 
-        .sp-card .btn {
-            width: 100%;
-            border-radius: 10px;
-            padding: 10px;
-            font-weight: 650;
-            background: var(--primary);
-            border-color: var(--primary);
-        }
+.sp-count strong { font-size: 23px; }
+.sp-count span { color: var(--muted); font-size: 15px; }
 
-        .sp-card .btn:hover {
-            background: #24568e;
-        }
+.card-hint {
+    color: var(--green);
+    font-size: 15px;
+    font-weight: 800;
+    margin-top: 14px;
+}
 
-        .empty-state {
-            display: none;
-            text-align: center;
-            padding: 35px;
-            color: var(--muted);
-            background: white;
-            border: 1px dashed #ccd6e5;
-            border-radius: 16px;
-        }
+.empty-state {
+    display: none;
+    padding: 25px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    text-align: center;
+}
 
-        .footer {
-            text-align: center;
-            padding: 24px;
-            color: var(--muted);
-            font-size: 12px;
-        }
+footer {
+    padding: 24px;
+    color: var(--muted);
+    font-size: 14px;
+    text-align: center;
+}
 
-        @media (max-width: 576px) {
-            .main-content { padding: 22px 14px 35px; }
-            .welcome-panel { padding: 24px 20px; }
-            .section-heading { align-items: stretch; }
-            .search-box { max-width: none; }
-        }
-    </style>
+@media (max-width: 1050px) {
+    .sp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+    main { padding: 20px 14px 30px; }
+    .welcome { padding: 23px 20px; }
+    .stats { grid-template-columns: 1fr; }
+    .sp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .sp-card { padding: 17px; }
+    .section-heading { align-items: stretch; }
+    .search-box { width: 100%; }
+}
+
+@media (max-width: 480px) {
+    .sp-grid { grid-template-columns: 1fr; }
+    .sp-card { min-height: 0; }
+    .quick-links { flex-direction: column; }
+    .quick-link { width: 100%; }
+    .brand-title { font-size: 17px; }
+    .brand-subtitle { font-size: 12px; }
+    .brand-icon { width: 45px; height: 45px; }
+    .logout { padding: 9px 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; }
+}
+</style>
 </head>
-
 <body>
 
 <header class="topbar">
-    <div class="container-fluid px-3 px-lg-5 d-flex
-                justify-content-between align-items-center gap-3">
-
-        <div class="d-flex align-items-center">
-            <div class="brand-mark">✦</div>
+    <div class="container-fluid px-3 px-lg-5 d-flex justify-content-between align-items-center gap-3">
+        <a class="brand" href="index.php">
+            <div class="brand-icon" aria-hidden="true">✦</div>
             <div>
                 <p class="brand-title">FJKM · Fitantanana</p>
-                <p class="brand-subtitle">Rafitra fitantanana antontan-taratasy</p>
+                <p class="brand-subtitle">Fitantanana antontan-taratasy</p>
             </div>
-        </div>
+        </a>
 
         <div class="d-flex align-items-center gap-3">
-            <span class="d-none d-sm-inline text-secondary small">
-                👤
-                <?= htmlspecialchars(
-                    $_SESSION['nom_complet'] ?? $_SESSION['username'] ?? '',
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) ?>
+            <span class="d-none d-sm-inline text-secondary">
+                👤 <?= e($_SESSION['nom_complet'] ?? $_SESSION['username'] ?? '') ?>
             </span>
-
-            <a href="logout.php" class="btn btn-outline-danger btn-sm">
-                Hivoaka ↗
-            </a>
+            <a href="logout.php" class="logout">Hivoaka ↗</a>
         </div>
     </div>
 </header>
 
-<main class="main-content">
+<main>
+    <section class="welcome">
+        <h1>Tongasoa eto amin'ny rafitra fitantanana FJKM</h1>
+        <p>Safidio ny Synodam-Paritany tianao hosokafana. Tsindrio mivantana ny karatra iray.</p>
 
-    <section class="welcome-panel">
-        <h1>Tongasoa eto amin'ny rafitra fitantanana ny antontan-taratasy FJKM.
-            Safidio ny Synodam-Paritany tianao hojerena.</h1>
-
-        <div class="welcome-actions">
-            <a href="recherche.php" class="btn btn-light">
-                🔎 Karohy antontan-taratasy
-            </a>
-
-            <?php if (
-                isset($_SESSION['user_role']) &&
-                $_SESSION['user_role'] === 'admin'
-            ): ?>
-                <a href="utilisateurs.php" class="btn btn-outline-light">
-                    👥 Mpampiasa
-                </a>
+        <div class="quick-links">
+            <a href="recherche.php" class="quick-link">🔎 Karohy antontan-taratasy</a>
+            <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin'): ?>
+                <a href="utilisateurs.php" class="quick-link admin">👥 Fitantanana mpampiasa</a>
             <?php endif; ?>
         </div>
     </section>
 
-    <section class="row g-3">
-        <div class="col-12 col-md-4">
-            <div class="stat-card">
-                <div class="stat-top">
-                    <span class="stat-label">Synodam-Paritany</span>
-                    <span class="stat-icon icon-blue">🏛️</span>
-                </div>
-                <div class="stat-number">
-                    <?= number_format($totalSP, 0, ',', ' ') ?>
-                </div>
-                <!-- <div class="text-secondary small">SP affichés</div> -->
+    <section class="stats" aria-label="Famintinana">
+        <div class="stat">
+            <div class="stat-icon" aria-hidden="true">🏛️</div>
+            <div>
+                <div class="stat-label">Synodam-Paritany</div>
+                <div class="stat-number"><?= number_format($totalSP, 0, ',', ' ') ?></div>
             </div>
         </div>
-
-        <div class="col-12 col-md-4">
-            <div class="stat-card">
-                <div class="stat-top">
-                    <span class="stat-label">Fitandremana</span>
-                    <span class="stat-icon icon-green">📁</span>
-                </div>
-                <div class="stat-number">
-                    <?= number_format($totalFitandremana, 0, ',', ' ') ?>
-                </div>
-                <!-- <div class="text-secondary small">Total des entrées</div> -->
+        <div class="stat">
+            <div class="stat-icon" aria-hidden="true">📁</div>
+            <div>
+                <div class="stat-label">Fitandremana</div>
+                <div class="stat-number"><?= number_format($totalFitandremana, 0, ',', ' ') ?></div>
             </div>
         </div>
-
-        <div class="col-12 col-md-4">
-            <div class="stat-card">
-                <div class="stat-top">
-                    <span class="stat-label">Parties des SP</span>
-                    <span class="stat-icon icon-orange">🗂️</span>
-                </div>
-                <div class="stat-number">
-                    <?= number_format($totalParties, 0, ',', ' ') ?>
-                </div>
-                <!-- <div class="text-secondary small">Enregistrements des SP</div> -->
+        <div class="stat">
+            <div class="stat-icon" aria-hidden="true">🗂️</div>
+            <div>
+                <div class="stat-label">Parties des SP</div>
+                <div class="stat-number"><?= number_format($totalParties, 0, ',', ' ') ?></div>
             </div>
         </div>
     </section>
@@ -441,65 +429,27 @@ foreach ($sps as $sp) {
         <div class="section-heading">
             <div>
                 <h2>Synodam-Paritany</h2>
-                <p>Safidio ny SP hanohizana ny fitantanana.</p>
             </div>
-
             <div class="search-box">
-                <span class="search-symbol">⌕</span>
-                <input type="search" id="spSearch"
-                       placeholder="Rechercher un SP..."
-                       aria-label="Rechercher un SP">
+                <input type="search" id="spSearch" placeholder="🔎 Mitady SP..." aria-label="Mitady Synodam-Paritany">
             </div>
         </div>
 
-        <div class="row g-3" id="spList">
+        <div class="sp-grid" id="spList">
             <?php foreach ($sps as $sp): ?>
-                <?php
-                    $numero = (string) $sp['numero_officiel'];
-                    $parties = (int) $sp['nombre_parties'];
-                    $nombreFit = (int) $sp['nombre_fitandremana'];
-                ?>
+                <a class="sp-card"
+                   href="sp.php?numero=<?= urlencode((string) $sp['numero_officiel']) ?>"
+                   aria-label="Ouvrir SP<?= e($sp['numero_officiel']) ?>">
 
-                <div class="col-12 col-sm-6 col-lg-4 col-xl-3 sp-item"
-                     data-search="<?= htmlspecialchars(
-                         'SP ' . $numero . ' ' . $numero,
-                         ENT_QUOTES,
-                         'UTF-8'
-                     ) ?>">
+                    <div class="sp-name">
+                        SP<?= e($sp['numero_officiel']) ?>
+                    </div>
 
-                    <article class="sp-card">
-                        <div class="sp-card-top">
-                            <div class="sp-icon">🏛️</div>
-                            <span class="sp-badge">
-                                <?= $parties ?> <?= $parties > 1 ? 'parties' : 'partie' ?>
-                            </span>
-                        </div>
-
-                        <div class="sp-card-body">
-                            <div class="sp-name">
-                                SP <?= htmlspecialchars(
-                                    $numero,
-                                    ENT_QUOTES,
-                                    'UTF-8'
-                                ) ?>
-                            </div>
-
-                            <div class="sp-description">
-                                Synodam-Paritany
-                            </div>
-
-                            <div class="sp-count">
-                                <strong><?= number_format($nombreFit, 0, ',', ' ') ?></strong>
-                                <span>Fitandremana</span>
-                            </div>
-
-                            <a href="sp.php?numero=<?= urlencode($numero) ?>"
-                               class="btn btn-primary">
-                                Hijery ny antsipiriany →
-                            </a>
-                        </div>
-                    </article>
-                </div>
+                    <div class="sp-count">
+                        <strong><?= number_format((int) $sp['nombre_fitandremana'], 0, ',', ' ') ?></strong>
+                        <span>Fitandremana</span>
+                    </div>
+                </a>
             <?php endforeach; ?>
         </div>
 
@@ -507,35 +457,35 @@ foreach ($sps as $sp) {
             Tsy misy SP mifanaraka amin'ny fikarohana.
         </div>
     </section>
-
 </main>
 
-<footer class="footer">
-    FJKM · Rafitra fitantanana antontan-taratasy
-</footer>
+<footer>FJKM · Rafitra fitantanana antontan-taratasy</footer>
 
 <script>
-    const searchInput = document.getElementById('spSearch');
-    const spItems = document.querySelectorAll('.sp-item');
-    const emptyState = document.getElementById('emptyState');
+const searchInput = document.getElementById('spSearch');
+const spItems = document.querySelectorAll('.sp-card');
+const emptyState = document.getElementById('emptyState');
 
-    searchInput.addEventListener('input', function () {
-        const query = this.value.trim().toLowerCase();
-        let visible = 0;
+if (searchInput) {
+searchInput.addEventListener('input', function () {
+    const query = this.value.trim().toLocaleLowerCase();
+    let visible = 0;
 
-        spItems.forEach(function (item) {
-            const text = item.textContent.toLowerCase();
-            const data = (item.dataset.search || '').toLowerCase();
-            const match = text.includes(query) || data.includes(query);
+    spItems.forEach(function (item) {
+        const text = item.textContent.toLocaleLowerCase();
+        const data = (item.dataset.search || '').toLocaleLowerCase();
+        const match = text.includes(query) || data.includes(query);
 
-            item.style.display = match ? '' : 'none';
-            if (match) visible++;
-        });
-
-        emptyState.style.display = visible === 0 ? 'block' : 'none';
+        item.style.display = match ? '' : 'none';
+        if (match) visible++;
     });
+
+    if (emptyState) {
+        emptyState.style.display = visible === 0 ? 'block' : 'none';
+    }
+});
+}
 </script>
 
 </body>
 </html>
-```
