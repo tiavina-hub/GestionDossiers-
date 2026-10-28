@@ -247,6 +247,7 @@ td form{display:inline}
 
         <div class="actions">
             <a class="btn primary" href="modifier_dossier.php?id=<?= (int)$dossier['id'] ?>">✏️ Modifier le dossier</a>
+            <a class="btn secondary" href="deplacer_dossier.php?id=<?= (int)$dossier['id'] ?>">↔ Déplacer le dossier</a>
             <a class="btn secondary" href="dossier.php?type_id=<?= (int)$dossier['type_id'] ?>">← Retour à la liste</a>
             <form method="POST" action="supprimer_dossier.php"
                   onsubmit="return confirm('Tena hofafana tanteraka ve ity dossier ity sy ny documents rehetra mifandray aminy ?');">

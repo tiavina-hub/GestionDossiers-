@@ -230,7 +230,14 @@ $totalFit = count($fitandremana);
             .main { padding: 22px 14px 35px; }
             .hero { padding: 23px 20px; }
         }
-    </style>
+    
+
+        .fit-card[role="link"] { cursor: pointer; }
+        .fit-card[role="link"]:focus-visible {
+            outline: 3px solid #245b45;
+            outline-offset: 3px;
+        }
+        </style>
 </head>
 <body>
 
@@ -289,48 +296,32 @@ $totalFit = count($fitandremana);
         <?php else: ?>
             <div class="row g-3" id="fitList">
                 <?php foreach ($fitandremana as $fit): ?>
-                    <div class="col-12 col-sm-6 col-lg-4 col-xl-3 fit-item">
-                        <article class="fit-card">
-                            <div class="card-body">
-                                <div class="fit-top">
-                                    <div class="fit-icon">📁</div>
-                                    <span class="fit-number">
-                                        N° <?= htmlspecialchars(
-                                            (string) ($fit['numero'] ?? '—'),
-                                            ENT_QUOTES,
-                                            'UTF-8'
-                                        ) ?>
-                                    </span>
-                                </div>
-
-                                <h3 class="fit-name">
-                                    <?= nl2br(htmlspecialchars(
-                                        $fit['nom'],
-                                        ENT_QUOTES,
-                                        'UTF-8'
-                                    )) ?>
-                                </h3>
-
-                                <div class="fit-status">
-                                    <?php if (!empty($fit['statut_source'])): ?>
-                                        Statut : <?= htmlspecialchars(
-                                            $fit['statut_source'],
-                                            ENT_QUOTES,
-                                            'UTF-8'
-                                        ) ?>
-                                    <?php else: ?>
-                                        Fitandremana
-                                    <?php endif; ?>
-                                </div>
-
-                                <a href="type.php?fitandremana_id=<?= (int) $fit['id'] ?>"
-                                   class="btn btn-primary">
-                                    Hijery karazana dossiers →
-                                </a>
-                            </div>
-                        </article>
-                    </div>
-                <?php endforeach; ?>
+  <div class="col-12 col-sm-6 col-lg-4 col-xl-3 fit-item">
+    <article class="fit-card" role="link" tabindex="0"
+      style="cursor:pointer"
+      onclick="window.location.href='type.php?fitandremana_id=<?= (int) $fit['id'] ?>'"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='type.php?fitandremana_id=<?= (int) $fit['id'] ?>'}">
+      <div class="card-body">
+        <div class="fit-top">
+          <div class="fit-icon">📁</div>
+          <span class="fit-number">
+            N° <?= htmlspecialchars((string) ($fit['numero'] ?? '—'), ENT_QUOTES, 'UTF-8') ?>
+          </span>
+        </div>
+        <h3 class="fit-name">
+          <?= nl2br(htmlspecialchars($fit['nom'], ENT_QUOTES, 'UTF-8')) ?>
+        </h3>
+        <div class="fit-status">
+          <?php if (!empty($fit['statut_source'])): ?>
+            Statut : <?= htmlspecialchars($fit['statut_source'], ENT_QUOTES, 'UTF-8') ?>
+          <?php else: ?>
+            Fitandremana
+          <?php endif; ?>
+        </div>
+      </div>
+    </article>
+  </div>
+<?php endforeach; ?>
             </div>
 
             <div id="emptySearch" class="empty mt-3" style="display:none">
