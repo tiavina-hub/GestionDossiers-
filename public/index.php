@@ -17,6 +17,11 @@ $stmt = $pdo->query("
 ");
 
 $sps = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$foibeCategories = $pdo->query(
+    "SELECT id, nom, description FROM foibe_categories ORDER BY id"
+)->fetchAll(PDO::FETCH_ASSOC);
+
 $totalSP = count($sps);
 $totalParties = 0;
 $totalFitandremana = 0;
@@ -457,6 +462,30 @@ footer {
             Tsy misy SP mifanaraka amin'ny fikarohana.
         </div>
     </section>
+
+    <section id="foibe-home-section" class="mt-5">
+        <div class="section-heading">
+            <div>
+                <h2>Foibe</h2>
+                <p>Safidio ny sokajy hitantanana ny antontan-taratasy Foibe.</p>
+            </div>
+        </div>
+
+        <div class="sp-grid">
+            <?php foreach ($foibeCategories as $categorie): ?>
+                <a class="sp-card"
+                   href="foibe.php?categorie_id=<?= (int) $categorie['id'] ?>">
+                    <div class="sp-name">
+                        <?= e($categorie['nom']) ?>
+                    </div>
+                    <div class="sp-count">
+                        <span><?= e($categorie['description'] ?? '') ?></span>
+                    </div>
+                </a>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
 </main>
 
 <footer>FJKM · Rafitra fitantanana antontan-taratasy</footer>
