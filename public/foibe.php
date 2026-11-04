@@ -88,8 +88,12 @@ th{background:#f3f6f0}
 <main>
     <div class="actions">
         <a class="btn btn-light" href="index.php">← Fandraisana</a>
+        <?php if (($_SESSION['user_role'] ?? '') === 'admin'): ?>
+            <a class="btn" href="gestion_types_foibe.php">⚙️ Gestion des types</a>
+        <?php endif; ?>
         <?php if ($categorie): ?>
             <a class="btn btn-light" href="foibe.php">Ireo sokajy rehetra</a>
+            <a class="btn btn-light" href="export_foibe_pdf.php?categorie_id=<?= (int)$categorie['id'] ?>">📄 Exporter en PDF</a>
             <a class="btn" href="nouveau_dossier_foibe.php?categorie_id=<?= (int)$categorie['id'] ?>">+ Dossier vaovao</a>
         <?php endif; ?>
     </div>

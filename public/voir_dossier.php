@@ -154,6 +154,9 @@ td form{display:inline}
     <?php if ($documentDeleted): ?>
         <div class="success">Document supprimé.</div>
     <?php endif; ?>
+    <?php if (isset($_GET['modified'])): ?>
+        <div class="success">Dossier modifié avec succès.</div>
+    <?php endif; ?>
 
     <?php if (is_array($uploadResult)): ?>
         <?php if (!empty($uploadResult['ajoutes'])): ?>
@@ -247,8 +250,14 @@ td form{display:inline}
 
         <div class="actions">
             <a class="btn primary" href="modifier_dossier.php?id=<?= (int)$dossier['id'] ?>">✏️ Modifier le dossier</a>
-            <a class="btn secondary" href="deplacer_dossier.php?id=<?= (int)$dossier['id'] ?>">↔ Déplacer le dossier</a>
-            <a class="btn secondary" href="dossier.php?type_id=<?= (int)$dossier['type_id'] ?>">← Retour à la liste</a>
+
+            <?php if (!$isFoibe): ?>
+                <a class="btn secondary" href="deplacer_dossier.php?id=<?= (int)$dossier['id'] ?>">↔ Déplacer le dossier</a>
+                <a class="btn secondary" href="dossier.php?type_id=<?= (int)$dossier['type_id'] ?>">← Retour à la liste</a>
+            <?php else: ?>
+                <a class="btn secondary" href="foibe.php?categorie_id=<?= (int)($dossier['foibe_categorie_id'] ?? 0) ?>">← Retour à Foibe</a>
+            <?php endif; ?>
+
             <form method="POST" action="supprimer_dossier.php"
                   onsubmit="return confirm('Tena hofafana tanteraka ve ity dossier ity sy ny documents rehetra mifandray aminy ?');">
                 <input type="hidden" name="id" value="<?= (int)$dossier['id'] ?>">
