@@ -15,13 +15,21 @@ if (!$id || $id < 1) {
 }
 
 $stmt = $pdo->prepare("
-    SELECT d.*, t.nom AS type_nom,
-           f.id AS fitandremana_id, f.nom AS fitandremana_nom,
-           sp.id AS sp_id, sp.numero_officiel, sp.nom AS sp_nom
+    SELECT d.*,
+           COALESCE(ft.nom, t.nom) AS type_nom,
+           fc.nom AS foibe_categorie_nom,
+           ft.categorie_id AS foibe_categorie_id,
+           f.id AS fitandremana_id,
+           f.nom AS fitandremana_nom,
+           sp.id AS sp_id,
+           sp.numero_officiel,
+           sp.nom AS sp_nom
     FROM dossiers d
-    JOIN types_dossiers t ON t.id = d.type_id
-    JOIN fitandremana f ON f.id = t.fitandremana_id
-    JOIN synodam_paritany sp ON sp.id = f.sp_id
+    LEFT JOIN types_dossiers t ON t.id = d.type_id
+    LEFT JOIN fitandremana f ON f.id = t.fitandremana_id
+    LEFT JOIN synodam_paritany sp ON sp.id = f.sp_id
+    LEFT JOIN foibe_types_dossiers ft ON ft.id = d.foibe_type_id
+    LEFT JOIN foibe_categories fc ON fc.id = ft.categorie_id
     WHERE d.id = ?
 ");
 $stmt->execute([$id]);
@@ -32,7 +40,8 @@ if (!$dossier) {
     exit('Dossier tsy hita.');
 }
 
-$typeCode = strtoupper(trim((string)($dossier['type_nom'] ?? 'TANY')));
+$isFoibe = !empty($dossier['foibe_type_id']);
+$typeCode = $isFoibe ? 'FOIBE' : strtoupper(trim((string)($dossier['type_nom'] ?? 'TANY')));
 $details = [];
 if ($typeCode === 'TRANO') {
     $detailStmt = $pdo->prepare('SELECT * FROM dossiers_trano WHERE dossier_id = ?');
@@ -51,7 +60,8 @@ if ($typeCode === 'TRANO') {
 }
 
 $stmt = $pdo->prepare("
-    SELECT id, nom_original, type_fichier, taille, date_ajout
+    SELECT id, nom_original, intitule, description, date_document,
+           categorie_document, type_fichier, taille, date_ajout
     FROM documents
     WHERE dossier_id = ?
     ORDER BY date_ajout DESC, id DESC
@@ -135,16 +145,25 @@ td form{display:inline}
 
 <main class="container">
     <nav class="breadcrumb">
-        <a href="index.php">SP</a> →
-        <a href="sp.php?numero=<?= urlencode((string)$dossier['numero_officiel']) ?>">
-            SP <?= e($dossier['numero_officiel']) ?>
-        </a> →
-        <a href="fitandremana.php?sp_id=<?= (int)$dossier['sp_id'] ?>">Fitandremana</a> →
-        <a href="type.php?fitandremana_id=<?= (int)$dossier['fitandremana_id'] ?>">
-            <?= e($dossier['fitandremana_nom']) ?>
-        </a> →
-        <a href="dossier.php?type_id=<?= (int)$dossier['type_id'] ?>">Dossiers</a> →
-        Consultation
+        <?php if ($isFoibe): ?>
+            <a href="index.php">Accueil</a> →
+            <a href="foibe.php?categorie_id=<?= (int)$dossier['foibe_categorie_id'] ?>">
+                <?= e($dossier['foibe_categorie_nom']) ?>
+            </a> →
+            <?= e($dossier['type_nom']) ?> →
+            Consultation
+        <?php else: ?>
+            <a href="index.php">SP</a> →
+            <a href="sp.php?numero=<?= urlencode((string)$dossier['numero_officiel']) ?>">
+                SP <?= e($dossier['numero_officiel']) ?>
+            </a> →
+            <a href="fitandremana.php?sp_id=<?= (int)$dossier['sp_id'] ?>">Fitandremana</a> →
+            <a href="type.php?fitandremana_id=<?= (int)$dossier['fitandremana_id'] ?>">
+                <?= e($dossier['fitandremana_nom']) ?>
+            </a> →
+            <a href="dossier.php?type_id=<?= (int)$dossier['type_id'] ?>">Dossiers</a> →
+            Consultation
+        <?php endif; ?>
     </nav>
 
     <?php if ($uploadCount !== false && $uploadCount !== null && $uploadCount > 0): ?>
@@ -186,10 +205,15 @@ td form{display:inline}
         <h3>Fampahalalana ankapobeny</h3>
         <div class="grid">
             <div class="field"><small>Anaran'ny dossier</small><strong><?= afficher($dossier['titre']) ?></strong></div>
-            <div class="field"><small>Laharana Fitandremana</small><strong><?= afficher($dossier['laharana_fitandremana']) ?></strong></div>
-            <div class="field"><small>SP</small><strong><?= e($dossier['numero_officiel']) ?> — <?= e($dossier['sp_nom']) ?></strong></div>
-            <div class="field"><small>Fitandremana</small><strong><?= e($dossier['fitandremana_nom']) ?></strong></div>
-            <div class="field"><small>Type de dossier</small><strong><?= e($dossier['type_nom']) ?></strong></div>
+            <?php if ($isFoibe): ?>
+                <div class="field"><small>Foibe / Catégorie</small><strong><?= afficher($dossier['foibe_categorie_nom']) ?></strong></div>
+                <div class="field"><small>Type de dossier</small><strong><?= afficher($dossier['type_nom']) ?></strong></div>
+            <?php else: ?>
+                <div class="field"><small>Laharana Fitandremana</small><strong><?= afficher($dossier['laharana_fitandremana']) ?></strong></div>
+                <div class="field"><small>SP</small><strong><?= e($dossier['numero_officiel']) ?> — <?= e($dossier['sp_nom']) ?></strong></div>
+                <div class="field"><small>Fitandremana</small><strong><?= e($dossier['fitandremana_nom']) ?></strong></div>
+                <div class="field"><small>Type de dossier</small><strong><?= e($dossier['type_nom']) ?></strong></div>
+            <?php endif; ?>
             <div class="field"><small>Date du dossier</small><strong><?= afficher($dossier['date_dossier']) ?></strong></div>
         </div>
 
@@ -228,7 +252,7 @@ td form{display:inline}
                 <tr><th colspan="2">TOTAL</th><th><?= number_format($totalSol, 2, ',', ' ') ?> Ar</th><th><?= number_format($totalRep, 2, ',', ' ') ?> Ar</th><td></td></tr>
                 </tbody></table></div>
             <?php endif; ?>
-        <?php else: ?>
+        <?php elseif (!$isFoibe): ?>
             <h3>Tompon'ny tany sy toerana</h3>
             <div class="grid">
                 <div class="field"><small>Tompon'ny tany</small><strong><?= afficher($dossier['tomponny_tany']) ?></strong></div>
@@ -275,11 +299,37 @@ td form{display:inline}
             <input type="hidden" name="csrf_token" value="<?= e($_SESSION['csrf_token']) ?>">
             <input type="hidden" name="dossier_id" value="<?= (int)$dossier['id'] ?>">
             <input type="hidden" name="MAX_FILE_SIZE" value="10485760">
-            <label for="documents"><strong>Choisir un ou plusieurs fichiers</strong></label>
-            <input id="documents" type="file" name="documents[]" multiple required
+
+            <label for="documents"><strong>Choisir un fichier</strong></label>
+            <input id="documents" type="file" name="documents[]" required
                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx">
+
+            <label for="intitule"><strong>Intitulé du document *</strong></label>
+            <input id="intitule" type="text" name="intitule" maxlength="255"
+                   placeholder="Ex. : Certificat de propriété" required>
+
+            <label for="description"><strong>Description / informations</strong></label>
+            <textarea id="description" name="description" rows="3"
+                      placeholder="Expliquez brièvement le contenu du document..."></textarea>
+
+            <label for="date_document"><strong>Date du document</strong></label>
+            <input id="date_document" type="date" name="date_document">
+
+            <label for="categorie_document"><strong>Catégorie du document *</strong></label>
+            <select id="categorie_document" name="categorie_document" required>
+                <option value="">Choisir une catégorie</option>
+                <option value="Document administratif">Document administratif</option>
+                <option value="Certificat">Certificat</option>
+                <option value="Acte">Acte</option>
+                <option value="Contrat">Contrat</option>
+                <option value="Justificatif">Justificatif</option>
+                <option value="Rapport">Rapport</option>
+                <option value="Photo">Photo</option>
+                <option value="Autre">Autre</option>
+            </select>
+
             <div>
-                <button type="submit" class="btn primary">⬆️ Ajouter les documents</button>
+                <button type="submit" class="btn primary">⬆️ Ajouter le document</button>
             </div>
         </form>
 
@@ -302,7 +352,15 @@ td form{display:inline}
                     <tbody>
                     <?php foreach ($documents as $doc): ?>
                         <tr>
-                            <td><?= e($doc['nom_original']) ?></td>
+                            <td>
+                                <strong><?= e($doc['intitule'] ?: $doc['nom_original']) ?></strong>
+                                <br><small><?= e($doc['nom_original']) ?></small>
+                                <?php if (!empty($doc['description'])): ?>
+                                    <br><?= nl2br(e($doc['description'])) ?>
+                                <?php endif; ?>
+                                <br><small>Catégorie : <?= afficher($doc['categorie_document']) ?></small>
+                                <br><small>Date du document : <?= afficher($doc['date_document']) ?></small>
+                            </td>
                             <td><?= e($doc['type_fichier'] ?: 'Inconnu') ?></td>
                             <td><?= taille_fichier($doc['taille'] ?? 0) ?></td>
                             <td><?= afficher($doc['date_ajout']) ?></td>
@@ -310,6 +368,10 @@ td form{display:inline}
                                 <div class="inline-actions">
                                     <a class="btn primary" target="_blank" rel="noopener"
    href="voir_document.php?id=<?= (int)$doc['id'] ?>">👁️ Voir</a>
+    <a class="btn secondary"
+       href="modifier_document.php?id=<?= (int)$doc['id'] ?>">
+        ✏️ Modifier
+    </a>
 
 <a class="btn secondary"
    href="telecharger.php?id=<?= (int)$doc['id'] ?>">⬇ Télécharger</a>

@@ -88,6 +88,31 @@ $temporaires = $_FILES['documents']['tmp_name'];
 $tailles = $_FILES['documents']['size'];
 $codes = $_FILES['documents']['error'];
 
+
+$intitule = trim((string)($_POST['intitule'] ?? ''));
+$description = trim((string)($_POST['description'] ?? ''));
+$dateDocument = trim((string)($_POST['date_document'] ?? ''));
+$categorieDocument = trim((string)($_POST['categorie_document'] ?? ''));
+
+if ($intitule === '' || mb_strlen($intitule) > 255 || $categorieDocument === '') {
+    http_response_code(400);
+    exit('Veuillez renseigner un intitulé valide et une catégorie.');
+}
+
+if ($dateDocument !== '') {
+    $dateValidee = DateTime::createFromFormat('!Y-m-d', $dateDocument);
+    if (!$dateValidee || $dateValidee->format('Y-m-d') !== $dateDocument) {
+        http_response_code(400);
+        exit('Date du document invalide.');
+    }
+} else {
+    $dateDocument = null;
+}
+
+if ($description === '') {
+    $description = null;
+}
+
 $nombre = count($noms);
 
 if ($nombre > $nombreMax) {
@@ -148,13 +173,18 @@ try {
 
         $stmt = $pdo->prepare(
             'INSERT INTO documents
-            (dossier_id, nom_original, nom_stockage, chemin, type_fichier, taille)
-            VALUES (?, ?, ?, ?, ?, ?)'
+            (dossier_id, nom_original, intitule, description, date_document,
+             categorie_document, nom_stockage, chemin, type_fichier, taille)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         $stmt->execute([
             $dossierId,
             $nomOriginal,
+            $intitule,
+            $description,
+            $dateDocument,
+            $categorieDocument,
             $nomStockage,
             $chemin,
             $mime,

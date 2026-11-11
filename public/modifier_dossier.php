@@ -4,9 +4,33 @@ require_login();
 require_once __DIR__ . '/../config/database.php';
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$id || $id < 1) { http_response_code(400); exit('Dossier invalide.'); }
-$q=$pdo->prepare("SELECT d.*,t.nom AS type_nom,f.nom AS fitandremana_nom,sp.numero_officiel,sp.nom AS sp_nom FROM dossiers d JOIN types_dossiers t ON t.id=d.type_id JOIN fitandremana f ON f.id=t.fitandremana_id JOIN synodam_paritany sp ON sp.id=f.sp_id WHERE d.id=?");
-$q->execute([$id]); $d=$q->fetch(PDO::FETCH_ASSOC); if(!$d){http_response_code(404);exit('Dossier introuvable.');}
-$type=strtoupper(trim($d['type_nom'])); if(!in_array($type,['TANY','TRANO','FIARA'],true))exit('Type non pris en charge.');
+$q=$pdo->prepare("SELECT d.*,
+    t.nom AS type_nom,
+    f.nom AS fitandremana_nom,
+    sp.numero_officiel, sp.nom AS sp_nom,
+    ft.nom AS foibe_type_nom,
+    fc.nom AS foibe_categorie_nom
+    FROM dossiers d
+    LEFT JOIN types_dossiers t ON t.id=d.type_id
+    LEFT JOIN fitandremana f ON f.id=t.fitandremana_id
+    LEFT JOIN synodam_paritany sp ON sp.id=f.sp_id
+    LEFT JOIN foibe_types_dossiers ft ON ft.id=d.foibe_type_id
+    LEFT JOIN foibe_categories fc ON fc.id=ft.categorie_id
+    WHERE d.id=?");
+$q->execute([$id]);
+$d=$q->fetch(PDO::FETCH_ASSOC);
+if(!$d){http_response_code(404);exit('Dossier introuvable.');}
+
+$isFoibe = !empty($d['foibe_type_id']);
+
+if ($isFoibe) {
+    $type = 'FOIBE';
+} else {
+    $type = strtoupper(trim((string)($d['type_nom'] ?? '')));
+    if(!in_array($type,['TANY','TRANO','FIARA'],true)) {
+        exit('Type non pris en charge.');
+    }
+}
 $err='';$statuses=['Mavitrika','En cours','Archivé'];$landTypes=['Titré','Cadastré','Karatany','Taratasin-totra'];
 $tr=['mpanofa'=>'','toerana'=>'','habe'=>'','asa'=>'','daty_debut'=>'','daty_fin'=>'','hofany'=>'','caution'=>'','situation'=>'','avenants'=>''];
 $car=['fiara'=>'','marque_modele'=>'','immatriculation'=>'','kilometrage'=>'','date_rapport'=>'','notes'=>''];$lines=[];
@@ -29,7 +53,11 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   for($i=0;$i<count($ps);$i++){$p=trim((string)$ps[$i]);$r=trim((string)($rs[$i]??'0'));$a=trim((string)($as[$i]??'0'));$m=trim((string)($ms[$i]??''));if($p===''&&$m===''&&($r===''||(float)$r==0)&&($a===''||(float)$a==0))continue;if($p===''){$err='Chaque ligne doit indiquer une pièce.';break;}if(!is_numeric($r===''?'0':$r)||(float)$r<0||!is_numeric($a===''?'0':$a)||(float)$a<0){$err='Les coûts doivent être des nombres positifs.';break;}$lines[]=['numero'=>(int)($ns[$i]??$i+1),'piece'=>$p,'cout_remplacement'=>$r===''?0:(float)$r,'cout_reparation'=>$a===''?0:(float)$a,'remarque'=>$m];}if(!$err&&!$lines)$err='Ajoutez au moins une pièce au rapport FIARA.';
  }
  if(!$err){try{$pdo->beginTransaction();
-  if($type==='TANY'){$q=$pdo->prepare('UPDATE dossiers SET laharana_fitandremana=?,tomponny_tany=?,fokontany=?,kaominina=?,distrika=?,faritra=?,karazan_tany=?,titre=?,description=?,statut=?,date_dossier=? WHERE id=?');$q->execute([nul($g['laharana_fitandremana']),$land['tomponny_tany'],nul($land['fokontany']),nul($land['kaominina']),nul($land['distrika']),nul($land['faritra']),$land['karazan_tany'],$g['titre'],nul($g['description']),$g['statut'],nul($g['date_dossier']),$id]);}
+  if($isFoibe) {
+   $q=$pdo->prepare('UPDATE dossiers SET titre=?,description=?,statut=?,date_dossier=? WHERE id=? AND foibe_type_id IS NOT NULL');
+   $q->execute([$g['titre'],nul($g['description']),$g['statut'],nul($g['date_dossier']),$id]);
+  }
+  elseif($type==='TANY'){$q=$pdo->prepare('UPDATE dossiers SET laharana_fitandremana=?,tomponny_tany=?,fokontany=?,kaominina=?,distrika=?,faritra=?,karazan_tany=?,titre=?,description=?,statut=?,date_dossier=? WHERE id=?');$q->execute([nul($g['laharana_fitandremana']),$land['tomponny_tany'],nul($land['fokontany']),nul($land['kaominina']),nul($land['distrika']),nul($land['faritra']),$land['karazan_tany'],$g['titre'],nul($g['description']),$g['statut'],nul($g['date_dossier']),$id]);}
   else{$q=$pdo->prepare('UPDATE dossiers SET laharana_fitandremana=?,titre=?,description=?,statut=?,date_dossier=?,tomponny_tany=NULL,fokontany=NULL,kaominina=NULL,distrika=NULL,faritra=NULL,karazan_tany=NULL WHERE id=?');$q->execute([nul($g['laharana_fitandremana']),$g['titre'],nul($g['description']),$g['statut'],nul($g['date_dossier']),$id]);
    if($type==='TRANO'){$q=$pdo->prepare('INSERT INTO dossiers_trano(dossier_id,mpanofa,toerana,habe,asa,daty_debut,daty_fin,hofany,caution,situation,avenants) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE mpanofa=VALUES(mpanofa),toerana=VALUES(toerana),habe=VALUES(habe),asa=VALUES(asa),daty_debut=VALUES(daty_debut),daty_fin=VALUES(daty_fin),hofany=VALUES(hofany),caution=VALUES(caution),situation=VALUES(situation),avenants=VALUES(avenants)');$q->execute([$id,nul($tr['mpanofa']),nul($tr['toerana']),nul($tr['habe']),nul($tr['asa']),nul($tr['daty_debut']),nul($tr['daty_fin']),$tr['hofany']===''?null:(float)$tr['hofany'],$tr['caution']===''?null:(float)$tr['caution'],nul($tr['situation']),nul($tr['avenants'])]);}
    else{$q=$pdo->prepare('INSERT INTO dossiers_fiara(dossier_id,fiara,marque_modele,immatriculation,kilometrage,date_rapport,notes) VALUES(?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE fiara=VALUES(fiara),marque_modele=VALUES(marque_modele),immatriculation=VALUES(immatriculation),kilometrage=VALUES(kilometrage),date_rapport=VALUES(date_rapport),notes=VALUES(notes)');$q->execute([$id,nul($car['fiara']),nul($car['marque_modele']),nul($car['immatriculation']),$car['kilometrage']===''?null:(int)$car['kilometrage'],nul($car['date_rapport']),nul($car['notes'])]);$q=$pdo->prepare('DELETE FROM lignes_fiara WHERE dossier_id=?');$q->execute([$id]);$q=$pdo->prepare('INSERT INTO lignes_fiara(dossier_id,numero,piece,cout_remplacement,cout_reparation,remarque) VALUES(?,?,?,?,?,?)');foreach($lines as $l)$q->execute([$id,$l['numero']>0?$l['numero']:null,$l['piece'],$l['cout_remplacement'],$l['cout_reparation'],nul($l['remarque'])]);}
@@ -38,10 +66,20 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
  foreach($g as $k=>$v)$d[$k]=$v;if($type==='TANY')foreach($land as $k=>$v)$d[$k]=$v;
 }
 ?>
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Modifier <?=e($type)?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><style>.line-card{border:1px solid #dee2e6;border-radius:10px;padding:15px;margin-bottom:12px}</style></head><body class="bg-light"><main class="container py-4"><a href="voir_dossier.php?id=<?=(int)$id?>" class="btn btn-outline-secondary mb-3">← Retour au dossier</a><p class="text-muted small">SP <?=e($d['numero_officiel'])?> — <?=e($d['sp_nom'])?> / <?=e($d['fitandremana_nom'])?> / <?=e($type)?></p><h1 class="h3 mb-4">Modifier le dossier <?=e($type)?></h1><?php if($err):?><div class="alert alert-danger"><?=e($err)?></div><?php endif;?>
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Modifier <?=e($type)?></title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><style>.line-card{border:1px solid #dee2e6;border-radius:10px;padding:15px;margin-bottom:12px}</style></head><body class="bg-light"><main class="container py-4"><a href="voir_dossier.php?id=<?=(int)$id?>" class="btn btn-outline-secondary mb-3">← Retour au dossier</a><?php if($isFoibe): ?>
+<p class="text-muted small">FOIBE / <?=e($d['foibe_categorie_nom'])?> / <?=e($d['foibe_type_nom'])?></p>
+<?php else: ?>
+<p class="text-muted small">SP <?=e($d['numero_officiel'])?> — <?=e($d['sp_nom'])?> / <?=e($d['fitandremana_nom'])?> / <?=e($type)?></p>
+<?php endif; ?><h1 class="h3 mb-4">Modifier le dossier <?=e($type)?></h1><?php if($err):?><div class="alert alert-danger"><?=e($err)?></div><?php endif;?>
 <form method="post" action="modifier_dossier.php?id=<?=(int)$id?>"><input type="hidden" name="csrf_token" value="<?=e($_SESSION['csrf_token'])?>"><div class="card shadow-sm mb-3"><div class="card-body"><h2 class="h5">Informations générales</h2><div class="row">
-<?php field('Laharana Fitandremana','laharana_fitandremana',$d['laharana_fitandremana']??'');?><div class="col-md-6 mb-3"><label class="form-label">Statut</label><select class="form-select" name="statut" required><?php foreach($statuses as $s):?><option value="<?=e($s)?>" <?=($d['statut']??'')===$s?'selected':''?>><?=e($s)?></option><?php endforeach;?></select></div><?php field('Nom du dossier','titre',$d['titre']??'','text',true);field('Date du dossier','date_dossier',$d['date_dossier']??'','date');?><div class="col-12 mb-3"><label class="form-label">Description générale</label><textarea class="form-control" name="description" rows="3"><?=e($d['description']??'')?></textarea></div></div>
-<?php if($type==='TANY'):?><h2 class="h5 mt-3">Informations foncières</h2><div class="row"><?php field("Tompon'ny tany",'tomponny_tany',$d['tomponny_tany']??'','text',true);?><div class="col-md-6 mb-3"><label class="form-label">Karazan-tany *</label><select class="form-select" name="karazan_tany" required><option value="">-- Choisir --</option><?php foreach($landTypes as $t):?><option value="<?=e($t)?>" <?=($d['karazan_tany']??'')===$t?'selected':''?>><?=e($t)?></option><?php endforeach;?></select></div><?php foreach(['fokontany'=>'Fokontany','kaominina'=>'Kaominina','distrika'=>'Distrika','faritra'=>'Faritra'] as $k=>$lab)field($lab,$k,$d[$k]??'');?></div>
+<?php if(!$isFoibe) field('Laharana Fitandremana','laharana_fitandremana',$d['laharana_fitandremana']??'');?><div class="col-md-6 mb-3"><label class="form-label">Statut</label><select class="form-select" name="statut" required><?php foreach($statuses as $s):?><option value="<?=e($s)?>" <?=($d['statut']??'')===$s?'selected':''?>><?=e($s)?></option><?php endforeach;?></select></div><?php field('Nom du dossier','titre',$d['titre']??'','text',true);field('Date du dossier','date_dossier',$d['date_dossier']??'','date');?><div class="col-12 mb-3"><label class="form-label">Description générale</label><textarea class="form-control" name="description" rows="3"><?=e($d['description']??'')?></textarea></div></div>
+<?php if($isFoibe):?>
+<h2 class="h5 mt-3">Informations du dossier Foibe</h2>
+<div class="alert alert-info">
+    Catégorie : <strong><?=e($d['foibe_categorie_nom'])?></strong><br>
+    Type de dossier : <strong><?=e($d['foibe_type_nom'])?></strong>
+</div>
+<?php elseif($type==='TANY'):?><h2 class="h5 mt-3">Informations foncières</h2><div class="row"><?php field("Tompon'ny tany",'tomponny_tany',$d['tomponny_tany']??'','text',true);?><div class="col-md-6 mb-3"><label class="form-label">Karazan-tany *</label><select class="form-select" name="karazan_tany" required><option value="">-- Choisir --</option><?php foreach($landTypes as $t):?><option value="<?=e($t)?>" <?=($d['karazan_tany']??'')===$t?'selected':''?>><?=e($t)?></option><?php endforeach;?></select></div><?php foreach(['fokontany'=>'Fokontany','kaominina'=>'Kaominina','distrika'=>'Distrika','faritra'=>'Faritra'] as $k=>$lab)field($lab,$k,$d[$k]??'');?></div>
 <?php elseif($type==='TRANO'):?><h2 class="h5 mt-3">Informations du bail / TRANO</h2><div class="row"><?php foreach(['mpanofa'=>'Ny Mpanofa','toerana'=>'Toerana','habe'=>'Habe / étage / surface','asa'=>'Asa / utilisation'] as $k=>$lab)field($lab,$k,$tr[$k]??'');field('Daty fanombohana','daty_debut',$tr['daty_debut']??'','date');field('Daty fiafarana','daty_fin',$tr['daty_fin']??'','date');field('Hofany (MGA)','hofany',$tr['hofany']??'','number',false,'0.01');field('Caution (MGA)','caution',$tr['caution']??'','number',false,'0.01');?><div class="col-12 mb-3"><label class="form-label">Situation / conditions / résiliation</label><textarea class="form-control" name="situation" rows="3"><?=e($tr['situation']??'')?></textarea></div><div class="col-12 mb-3"><label class="form-label">Avenants / renouvellements</label><textarea class="form-control" name="avenants" rows="4"><?=e($tr['avenants']??'')?></textarea></div></div>
 <?php else:?><h2 class="h5 mt-3">Informations du véhicule / FIARA</h2><div class="row"><?php foreach(['fiara'=>'Désignation du véhicule','marque_modele'=>'Marque / modèle','immatriculation'=>'Immatriculation'] as $k=>$lab)field($lab,$k,$car[$k]??'');field('Kilométrage','kilometrage',$car['kilometrage']??'','number');field('Date du rapport','date_rapport',$car['date_rapport']??'','date');?><div class="col-12 mb-3"><label class="form-label">Notes générales</label><textarea class="form-control" name="notes" rows="2"><?=e($car['notes']??'')?></textarea></div></div><h2 class="h5 mt-3">Pièces et réparations</h2><p class="text-muted small">Totaux SOLOINA et AMBOARINA calculés séparément.</p><div id="lines"><?php foreach($lines as $i=>$l):?><div class="line-card"><div class="d-flex justify-content-between mb-2"><strong>Pièce <span class="lnum"><?=$i+1?></span></strong><button type="button" class="btn btn-sm btn-outline-danger remove">Supprimer</button></div><div class="row"><div class="col-md-2 mb-2"><label class="form-label">Lah</label><input class="form-control" type="number" min="1" name="numero[]" value="<?=e($l['numero']?:$i+1)?>"></div><div class="col-md-4 mb-2"><label class="form-label">FITAOVANA *</label><input class="form-control" name="piece[]" required value="<?=e($l['piece'])?>"></div><div class="col-md-3 mb-2"><label class="form-label">SOLOINA (MGA)</label><input class="form-control cr" type="number" min="0" step="0.01" name="cout_remplacement[]" value="<?=e($l['cout_remplacement']??0)?>"></div><div class="col-md-3 mb-2"><label class="form-label">AMBOARINA (MGA)</label><input class="form-control ca" type="number" min="0" step="0.01" name="cout_reparation[]" value="<?=e($l['cout_reparation']??0)?>"></div><div class="col-12"><label class="form-label">FANAMARIHANA</label><input class="form-control" name="remarque[]" value="<?=e($l['remarque']??'')?>"></div></div></div><?php endforeach;?></div><button type="button" id="add" class="btn btn-outline-primary btn-sm">+ Ajouter une pièce</button><div class="row mt-3"><div class="col-md-6"><div class="alert alert-secondary">Total SOLOINA : <b id="totalR">0</b> MGA</div></div><div class="col-md-6"><div class="alert alert-secondary">Total AMBOARINA : <b id="totalA">0</b> MGA</div></div></div><?php endif;?></div></div><button class="btn btn-success" type="submit">Enregistrer les modifications</button> <a href="voir_dossier.php?id=<?=(int)$id?>" class="btn btn-outline-secondary">Annuler</a></form></main>
 <?php if($type==='FIARA'):?><script>
