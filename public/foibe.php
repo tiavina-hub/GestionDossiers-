@@ -8,6 +8,39 @@ function e($v): string {
 }
 
 $categorieId = (int)($_GET['categorie_id'] ?? 0);
+$q = trim((string)($_GET['q'] ?? ''));
+$searchResults = [];
+
+if ($q !== '') {
+    $like = '%' . $q . '%';
+    $stmt = $pdo->prepare("
+        SELECT DISTINCT d.id, d.titre, d.description, d.statut,
+               d.date_dossier, ft.nom AS type_nom,
+               fc.nom AS categorie_nom
+        FROM dossiers d
+        LEFT JOIN foibe_types_dossiers ft ON ft.id = d.foibe_type_id
+        LEFT JOIN foibe_categories fc ON fc.id = ft.categorie_id
+        LEFT JOIN documents doc ON doc.dossier_id = d.id
+        WHERE d.foibe_type_id IS NOT NULL
+          AND (
+              d.titre LIKE ? OR d.description LIKE ?
+              OR d.laharana_fitandremana LIKE ?
+              OR d.tomponny_tany LIKE ? OR d.fokontany LIKE ?
+              OR d.kaominina LIKE ? OR d.distrika LIKE ?
+              OR d.faritra LIKE ? OR d.karazan_tany LIKE ?
+              OR d.statut LIKE ? OR ft.nom LIKE ?
+              OR ft.description LIKE ? OR fc.nom LIKE ?
+              OR fc.description LIKE ? OR doc.nom_original LIKE ?
+              OR doc.intitule LIKE ? OR doc.description LIKE ?
+              OR doc.categorie_document LIKE ?
+          )
+        ORDER BY COALESCE(d.date_dossier, DATE(d.date_creation)) DESC,
+                 d.id DESC
+        LIMIT 300
+    ");
+    $stmt->execute(array_fill(0, 18, $like));
+    $searchResults = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
 $categories = $pdo->query(
     "SELECT id, nom, description FROM foibe_categories ORDER BY id"
@@ -77,6 +110,9 @@ table{width:100%;border-collapse:collapse}
 th,td{text-align:left;padding:12px;border-bottom:1px solid #e5e9e2}
 th{background:#f3f6f0}
 .empty{padding:22px;background:white;border-radius:10px}
+.search-box{background:white;border:1px solid #e0e5dd;border-radius:14px;padding:18px;margin:18px 0 25px}
+.search-row{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+.search-row input{flex:1;min-width:220px;padding:12px;border:1px solid #ccd6cc;border-radius:8px;font-size:15px}
 @media(max-width:600px){table{font-size:14px}th,td{padding:8px}}
 </style>
 </head>
@@ -98,7 +134,60 @@ th{background:#f3f6f0}
         <?php endif; ?>
     </div>
 
-    <?php if (!$categorie): ?>
+    <form method="get" action="foibe.php" class="search-box">
+        <label for="q"><strong>🔎 Karohy dossier Foibe</strong></label>
+        <div class="search-row">
+            <input type="search" id="q" name="q"
+                   value="<?= e($q) ?>"
+                   placeholder="Titre, tompon-tany, fokontany, sokajy, karazana, document...">
+            <button class="btn" type="submit">Karohy</button>
+            <?php if ($q !== ''): ?>
+                <a class="btn btn-light" href="foibe.php">Averina</a>
+            <?php endif; ?>
+        </div>
+        <p class="muted">Afaka mitady amin'ny teny na laharana rehetra mifandray amin'ny dossier ianao.</p>
+    </form>
+
+    <?php if ($q !== ''): ?>
+        <h2>Valin'ny fikarohana: "<?= e($q) ?>"</h2>
+        <p class="muted"><?= count($searchResults) ?> dossier hita</p>
+
+        <?php if ($searchResults): ?>
+            <div class="panel" style="overflow-x:auto">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Titre</th>
+                            <th>Sokajy</th>
+                            <th>Karazana</th>
+                            <th>Statut</th>
+                            <th>Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($searchResults as $d): ?>
+                        <tr>
+                            <td><?= e($d['titre']) ?></td>
+                            <td><?= e($d['categorie_nom']) ?></td>
+                            <td><?= e($d['type_nom']) ?></td>
+                            <td><?= e($d['statut']) ?></td>
+                            <td><?= e($d['date_dossier']) ?></td>
+                            <td>
+                                <a href="voir_dossier.php?id=<?= (int)$d['id'] ?>">Hijery</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php else: ?>
+            <div class="empty">
+                Tsy nahitana dossier mifanaraka amin'io fikarohana io.
+            </div>
+        <?php endif; ?>
+
+    <?php elseif (!$categorie): ?>
         <h2>Ireo sokajy Foibe</h2>
         <p class="muted">
             <?= count($categories) ?> sokajy ·

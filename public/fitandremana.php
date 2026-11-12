@@ -33,6 +33,15 @@ $stmt->execute([$sp_id]);
 $fitandremana = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $totalFit = count($fitandremana);
+
+$isAdmin = ($_SESSION['user_role'] ?? '') === 'admin';
+
+if ($isAdmin && empty($_SESSION['csrf_fitandremana'])) {
+    $_SESSION['csrf_fitandremana'] = bin2hex(random_bytes(32));
+}
+
+$messageFit = $_SESSION['fitandremana_message'] ?? '';
+unset($_SESSION['fitandremana_message']);
 ?>
 <!DOCTYPE html>
 <html lang="mg">
@@ -232,6 +241,24 @@ $totalFit = count($fitandremana);
         }
     
 
+        .fit-actions .btn {
+            margin-top: 0;
+            background: white;
+            border-radius: 8px;
+            padding: 8px 5px;
+            font-weight: 600;
+        }
+
+        .fit-actions .btn-outline-primary {
+            color: #173b68;
+            border-color: #173b68;
+        }
+
+        .fit-actions .btn-outline-danger {
+            color: #dc3545;
+            border-color: #dc3545;
+        }
+
         .fit-card[role="link"] { cursor: pointer; }
         .fit-card[role="link"]:focus-visible {
             outline: 3px solid #245b45;
@@ -265,6 +292,18 @@ $totalFit = count($fitandremana);
 </header>
 
 <main class="main">
+
+    <?php if ($messageFit): ?>
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <?= htmlspecialchars($messageFit, ENT_QUOTES, 'UTF-8') ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+        </div>
+    <?php endif; ?>
+
+    <?php if (isset($_GET['modifie'])): ?>
+        <div class="alert alert-success">Fitandremana novaina soa aman-tsara.</div>
+    <?php endif; ?>
+
     <a href="sp.php?numero=<?= urlencode($sp['numero_officiel']) ?>" class="back-link">
         ← Hiverina amin'ny SP
     </a>
@@ -318,6 +357,30 @@ $totalFit = count($fitandremana);
             Fitandremana
           <?php endif; ?>
         </div>
+
+        <?php if ($isAdmin): ?>
+          <div class="fit-actions d-flex gap-2 mt-3">
+            <a href="modifier_fitandremana.php?id=<?= (int)$fit['id'] ?>"
+               class="btn btn-sm btn-outline-primary flex-fill"
+               onclick="event.stopPropagation()">
+               ✏️ Modifier
+            </a>
+
+            <form method="POST"
+                  action="supprimer_fitandremana.php"
+                  class="flex-fill"
+                  onsubmit="event.stopPropagation(); return confirm('Voulez-vous vraiment supprimer ce Fitandremana ? La suppression sera refusée s’il possède des types de dossiers.');">
+              <input type="hidden" name="id" value="<?= (int)$fit['id'] ?>">
+              <input type="hidden" name="csrf_token"
+                     value="<?= htmlspecialchars($_SESSION['csrf_fitandremana'], ENT_QUOTES, 'UTF-8') ?>">
+              <button type="submit" class="btn btn-sm btn-outline-danger w-100"
+                      onclick="event.stopPropagation()">
+                🗑️ Supprimer
+              </button>
+            </form>
+          </div>
+        <?php endif; ?>
+
       </div>
     </article>
   </div>

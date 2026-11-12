@@ -1,0 +1,46 @@
+<?php
+require_once __DIR__ . '/../config/auth.php';
+require_login();
+require_admin();
+require_once __DIR__ . '/../config/database.php';
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    exit('Méthode non autorisée.');
+}
+
+$id = (int)($_POST['id'] ?? 0);
+$token = $_POST['csrf_token'] ?? '';
+
+if ($id <= 0 || empty($_SESSION['csrf_fitandremana']) ||
+    !hash_equals($_SESSION['csrf_fitandremana'], $token)) {
+    http_response_code(400);
+    exit('Requête invalide ou session expirée.');
+}
+
+$stmt = $pdo->prepare("SELECT sp_id, nom FROM fitandremana WHERE id = ?");
+$stmt->execute([$id]);
+$fit = $stmt->fetch(PDO::FETCH_ASSOC);
+
+if (!$fit) {
+    exit('Fitandremana introuvable.');
+}
+
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM types_dossiers WHERE fitandremana_id = ?");
+$stmt->execute([$id]);
+$totalTypes = (int)$stmt->fetchColumn();
+
+if ($totalTypes > 0) {
+    $_SESSION['fitandremana_message'] =
+        "Suppression impossible : ce Fitandremana possède $totalTypes type(s) de dossiers.";
+} else {
+    $stmt = $pdo->prepare("DELETE FROM fitandremana WHERE id = ?");
+    $stmt->execute([$id]);
+
+    $_SESSION['fitandremana_message'] = 'Fitandremana supprimé avec succès.';
+}
+
+unset($_SESSION['csrf_fitandremana']);
+
+header('Location: fitandremana.php?sp_id=' . (int)$fit['sp_id']);
+exit;
