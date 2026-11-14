@@ -1,17 +1,30 @@
+
 <?php
-require_once __DIR__ . '/../config/auth.php';
-require_login();
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/historique.php';
+require_once __DIR__ . '/../config/auth.php';
 
-$sp_id = isset($_GET['sp_id']) ? (int) $_GET['sp_id'] : 0;
+require_login();
 
-if ($sp_id <= 0) {
-    header('Location: index.php');
-    exit;
+$isAdmin = ($_SESSION['user_role'] ?? '') === 'admin';
+
+function e($value) {
+    return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 }
 
+if (!isset($_SESSION['csrf_fitandremana'])) {
+    $_SESSION['csrf_fitandremana'] = bin2hex(random_bytes(32));
+}
+
+$sp_id = filter_input(INPUT_GET, 'sp_id', FILTER_VALIDATE_INT);
+
+if (!$sp_id) {
+    die("SP invalide.");
+}
+
+// Récupération du SP
 $stmt = $pdo->prepare("
-    SELECT id, numero, numero_officiel, nom
+    SELECT id, numero_officiel, nom
     FROM synodam_paritany
     WHERE id = ?
 ");
@@ -19,401 +32,464 @@ $stmt->execute([$sp_id]);
 $sp = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$sp) {
-    header('Location: index.php');
-    exit;
+    die("SP introuvable.");
 }
 
+$message = '';
+$erreur = '';
+
+// Ajout d'un Fitandremana
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && ($_POST['action'] ?? '') === 'ajouter_fitandremana'
+) {
+    if (!$isAdmin) {
+        http_response_code(403);
+        die("Accès refusé.");
+    }
+
+    if (!hash_equals(
+        $_SESSION['csrf_fitandremana'],
+        $_POST['csrf_token'] ?? ''
+    )) {
+        die("Jeton de sécurité invalide.");
+    }
+
+    $nom = trim($_POST['nom'] ?? '');
+
+    if ($nom === '') {
+        $erreur = "Le nom du Fitandremana est obligatoire.";
+    } elseif (mb_strlen($nom) > 255) {
+        $erreur = "Le nom ne doit pas dépasser 255 caractères.";
+    } else {
+        try {
+            $pdo->beginTransaction();
+
+            // Verrouiller le SP pendant l'opération
+            $stmt = $pdo->prepare("
+                SELECT id
+                FROM synodam_paritany
+                WHERE id = ?
+                FOR UPDATE
+            ");
+            $stmt->execute([$sp_id]);
+
+            if (!$stmt->fetch()) {
+                throw new Exception("SP introuvable.");
+            }
+
+            // Insérer le nouveau Fitandremana
+            $stmt = $pdo->prepare("
+                INSERT INTO fitandremana (sp_id, numero, nom)
+                VALUES (?, NULL, ?)
+            ");
+            $stmt->execute([$sp_id, $nom]);
+
+            // Récupérer tous les Fitandremana par ordre alphabétique
+            $stmt = $pdo->prepare("
+                SELECT id
+                FROM fitandremana
+                WHERE sp_id = ?
+                ORDER BY nom ASC, id ASC
+                FOR UPDATE
+            ");
+            $stmt->execute([$sp_id]);
+
+            $liste = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            // Réattribuer les numéros de 1 à N
+            $update = $pdo->prepare("
+                UPDATE fitandremana
+                SET numero = ?
+                WHERE id = ? AND sp_id = ?
+            ");
+
+            $numero = 1;
+
+            foreach ($liste as $fit_id) {
+                $update->execute([
+                    $numero,
+                    $fit_id,
+                    $sp_id
+                ]);
+
+                $numero++;
+            }
+
+            $fitId = (int)$pdo->lastInsertId();
+
+            enregistrer_action(
+                $pdo,
+                'Création',
+                'Fitandremana',
+                $fitId,
+                'Création du Fitandremana « ' . $nom .
+                ' » dans le SP ' . $sp['numero_officiel'] .
+                ' — ' . $sp['nom']
+            );
+
+            $pdo->commit();
+
+            header(
+                "Location: fitandremana.php?sp_id="
+                . $sp_id
+                . "&ajoute=1"
+            );
+            exit;
+
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            error_log($e->getMessage());
+            $erreur = "Erreur lors de l'ajout du Fitandremana.";
+        }
+    }
+}
+
+// Messages
+if (isset($_GET['ajoute'])) {
+    $message = "Fitandremana ajouté avec succès.";
+}
+
+if (isset($_GET['modifie'])) {
+    $message = "Fitandremana modifié avec succès.";
+}
+
+if (isset($_GET['supprime'])) {
+    $message = "Fitandremana supprimé avec succès.";
+}
+
+if (($_GET['erreur'] ?? '') === 'suppression') {
+    $erreur = "Impossible de supprimer ce Fitandremana : il contient au moins un dossier.";
+}
+
+// Récupérer la liste dans l'ordre alphabétique
 $stmt = $pdo->prepare("
-    SELECT id, numero, nom, statut_source, observation
+    SELECT id, numero, nom
     FROM fitandremana
     WHERE sp_id = ?
-    ORDER BY id ASC
+    ORDER BY nom ASC, id ASC
 ");
 $stmt->execute([$sp_id]);
+
 $fitandremana = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$totalFit = count($fitandremana);
-
-$isAdmin = ($_SESSION['user_role'] ?? '') === 'admin';
-
-if ($isAdmin && empty($_SESSION['csrf_fitandremana'])) {
-    $_SESSION['csrf_fitandremana'] = bin2hex(random_bytes(32));
-}
-
-$messageFit = $_SESSION['fitandremana_message'] ?? '';
-unset($_SESSION['fitandremana_message']);
 ?>
+
 <!DOCTYPE html>
-<html lang="mg">
+<html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Fitandremana - <?= htmlspecialchars($sp['nom'], ENT_QUOTES, 'UTF-8') ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <title>Gestion des Fitandremana</title>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    >
+
     <style>
-        :root {
-            --primary: #173b68;
-            --background: #f4f7fb;
-            --muted: #738198;
-        }
-
         body {
-            background: var(--background);
-            color: #172b4d;
-            font-family: Inter, "Segoe UI", Arial, sans-serif;
+            background: #f4f6f9;
+            color: #263238;
         }
 
-        .topbar {
+        .main-container {
+            max-width: 1100px;
+            margin: 35px auto;
+        }
+
+        .page-header {
             background: white;
-            border-bottom: 1px solid #e7edf5;
-            padding: 16px 0;
-        }
-
-        .brand-mark {
-            width: 42px;
-            height: 42px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 13px;
-            background: var(--primary);
-            color: white;
-            font-size: 21px;
-        }
-
-        .main {
-            max-width: 1450px;
-            margin: auto;
-            padding: 30px 24px 48px;
-        }
-
-        .back-link {
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 600;
-            display: inline-block;
-            margin-bottom: 22px;
-        }
-
-        .hero {
-            background: linear-gradient(120deg, #173b68, #285a91);
-            color: white;
-            border-radius: 20px;
-            padding: 28px;
-            margin-bottom: 25px;
-        }
-
-        .hero h1 {
-            font-size: clamp(24px, 3vw, 32px);
-            font-weight: 800;
-            margin-bottom: 8px;
-        }
-
-        .hero p {
-            color: #d9e6f7;
-            margin-bottom: 0;
-        }
-
-        .summary {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 20px;
-            padding: 12px 15px;
-            border: 1px solid rgba(255,255,255,.25);
-            background: rgba(255,255,255,.1);
+            padding: 25px;
             border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,.04);
         }
 
-        .toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 14px;
-            margin: 30px 0 20px;
-        }
-
-        .toolbar h2 {
-            font-size: 21px;
-            font-weight: 750;
-            margin-bottom: 4px;
-        }
-
-        .toolbar p {
-            color: var(--muted);
-            margin: 0;
-            font-size: 14px;
-        }
-
-        .search {
-            max-width: 370px;
-            width: 100%;
-            border: 1px solid #dfe6f0;
-            border-radius: 11px;
-            padding: 12px 14px;
+        .section-card {
             background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,.04);
         }
 
         .fit-card {
-            height: 100%;
-            border: 1px solid #e5ebf4;
-            border-radius: 16px;
             background: white;
+            border: 1px solid #e4e8ed;
+            border-radius: 10px;
+            padding: 20px;
+            height: 100%;
             transition: .2s;
-            overflow: hidden;
         }
 
         .fit-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 25px rgba(25,48,80,.08);
-        }
-
-        .fit-card .card-body {
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .fit-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 17px;
-        }
-
-        .fit-icon {
-            width: 43px;
-            height: 43px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border-radius: 12px;
-            background: #eaf1fb;
-            font-size: 21px;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,.07);
         }
 
         .fit-number {
-            background: #edf2f8;
-            color: #536781;
-            padding: 6px 10px;
-            border-radius: 8px;
-            font-size: 12px;
+            color: #0d6efd;
             font-weight: 700;
+            font-size: 14px;
         }
 
         .fit-name {
-            font-size: 17px;
-            font-weight: 750;
-            line-height: 1.45;
-            overflow-wrap: anywhere;
-            margin-bottom: 10px;
-        }
-
-        .fit-status {
-            color: var(--muted);
-            font-size: 13px;
-            margin-bottom: 17px;
-        }
-
-        .fit-card .btn {
-            margin-top: auto;
-            background: var(--primary);
-            border-color: var(--primary);
-            border-radius: 10px;
-            padding: 10px;
-            font-weight: 650;
-        }
-
-        .empty {
-            background: white;
-            border: 1px dashed #ccd6e5;
-            border-radius: 15px;
-            padding: 30px;
-            text-align: center;
-            color: var(--muted);
-        }
-
-        @media (max-width: 576px) {
-            .main { padding: 22px 14px 35px; }
-            .hero { padding: 23px 20px; }
-        }
-    
-
-        .fit-actions .btn {
-            margin-top: 0;
-            background: white;
-            border-radius: 8px;
-            padding: 8px 5px;
+            font-size: 18px;
             font-weight: 600;
+            margin: 10px 0 18px;
         }
 
-        .fit-actions .btn-outline-primary {
-            color: #173b68;
-            border-color: #173b68;
+        .section-title {
+            font-size: 20px;
+            font-weight: 650;
+            margin-bottom: 20px;
         }
 
-        .fit-actions .btn-outline-danger {
-            color: #dc3545;
-            border-color: #dc3545;
+        .search-input {
+            max-width: 350px;
         }
-
-        .fit-card[role="link"] { cursor: pointer; }
-        .fit-card[role="link"]:focus-visible {
-            outline: 3px solid #245b45;
-            outline-offset: 3px;
-        }
-        </style>
+    </style>
 </head>
+
 <body>
 
-<header class="topbar">
-    <div class="container-fluid px-3 px-lg-5 d-flex justify-content-between align-items-center gap-3">
-        <div class="d-flex align-items-center gap-2">
-            <div class="brand-mark">✦</div>
-            <div>
-                <div class="fw-bold">FJKM · Fitantanana</div>
-                <div class="text-secondary small">Fitantanana antontan-taratasy</div>
-            </div>
+<div class="container main-container">
+
+    <div class="page-header">
+
+        <a href="index.php" class="btn btn-outline-secondary btn-sm mb-3">
+            Retour à l'accueil
+        </a>
+
+        <h2 class="mb-2">
+            Gestion des Fitandremana
+        </h2>
+
+        <div class="text-muted">
+            SP <?= e($sp['numero_officiel']) ?>
+            - <?= e($sp['nom']) ?>
         </div>
 
-        <div class="d-flex align-items-center gap-3">
-            <span class="d-none d-sm-inline text-secondary small">
-                👤 <?= htmlspecialchars(
-                    $_SESSION['nom_complet'] ?? $_SESSION['username'] ?? '',
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) ?>
-            </span>
-            <a href="logout.php" class="btn btn-outline-danger btn-sm">Hivoaka ↗</a>
-        </div>
     </div>
-</header>
 
-<main class="main">
-
-    <?php if ($messageFit): ?>
-        <div class="alert alert-info alert-dismissible fade show" role="alert">
-            <?= htmlspecialchars($messageFit, ENT_QUOTES, 'UTF-8') ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fermer"></button>
+    <?php if ($message): ?>
+        <div class="alert alert-success">
+            <?= e($message) ?>
         </div>
     <?php endif; ?>
 
-    <?php if (isset($_GET['modifie'])): ?>
-        <div class="alert alert-success">Fitandremana novaina soa aman-tsara.</div>
+    <?php if ($erreur): ?>
+        <div class="alert alert-danger">
+            <?= e($erreur) ?>
+        </div>
     <?php endif; ?>
 
-    <a href="sp.php?numero=<?= urlencode($sp['numero_officiel']) ?>" class="back-link">
-        ← Hiverina amin'ny SP
-    </a>
+    <?php if ($isAdmin): ?>
 
-    <section class="hero">
-        <h1>SP <?= htmlspecialchars($sp['numero_officiel'], ENT_QUOTES, 'UTF-8') ?></h1>
-        <p><?= htmlspecialchars($sp['nom'], ENT_QUOTES, 'UTF-8') ?></p>
-        <div class="summary">
-            <span>📁</span>
-            <strong><?= number_format($totalFit, 0, ',', ' ') ?> Fitandremana</strong>
-        </div>
-    </section>
+        <div class="section-card">
 
-    <section>
-        <div class="toolbar">
-            <div>
-                <h2>Lisitry ny Fitandremana</h2>
-                <p>Safidio ny Fitandremana hijerena ireo karazana dossiers.</p>
-            </div>
-            <input id="fitSearch" class="search" type="search"
-                   placeholder="Karohy amin'ny anarana na laharana..."
-                   aria-label="Karohy Fitandremana">
-        </div>
+            <h3 class="section-title">
+                Ajouter un Fitandremana
+            </h3>
 
-        <?php if (!$fitandremana): ?>
-            <div class="empty">
-                Tsy mbola misy Fitandremana voasoratra ho an'ity SP ity.
-            </div>
-        <?php else: ?>
-            <div class="row g-3" id="fitList">
-                <?php foreach ($fitandremana as $fit): ?>
-  <div class="col-12 col-sm-6 col-lg-4 col-xl-3 fit-item">
-    <article class="fit-card" role="link" tabindex="0"
-      style="cursor:pointer"
-      onclick="window.location.href='type.php?fitandremana_id=<?= (int) $fit['id'] ?>'"
-      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.location.href='type.php?fitandremana_id=<?= (int) $fit['id'] ?>'}">
-      <div class="card-body">
-        <div class="fit-top">
-          <div class="fit-icon">📁</div>
-          <span class="fit-number">
-            N° <?= htmlspecialchars((string) ($fit['numero'] ?? '—'), ENT_QUOTES, 'UTF-8') ?>
-          </span>
-        </div>
-        <h3 class="fit-name">
-          <?= nl2br(htmlspecialchars($fit['nom'], ENT_QUOTES, 'UTF-8')) ?>
-        </h3>
-        <div class="fit-status">
-          <?php if (!empty($fit['statut_source'])): ?>
-            Statut : <?= htmlspecialchars($fit['statut_source'], ENT_QUOTES, 'UTF-8') ?>
-          <?php else: ?>
-            Fitandremana
-          <?php endif; ?>
-        </div>
+            <form method="POST">
 
-        <?php if ($isAdmin): ?>
-          <div class="fit-actions d-flex gap-2 mt-3">
-            <a href="modifier_fitandremana.php?id=<?= (int)$fit['id'] ?>"
-               class="btn btn-sm btn-outline-primary flex-fill"
-               onclick="event.stopPropagation()">
-               ✏️ Modifier
-            </a>
+                <input
+                    type="hidden"
+                    name="action"
+                    value="ajouter_fitandremana"
+                >
 
-            <form method="POST"
-                  action="supprimer_fitandremana.php"
-                  class="flex-fill"
-                  onsubmit="event.stopPropagation(); return confirm('Voulez-vous vraiment supprimer ce Fitandremana ? La suppression sera refusée s’il possède des types de dossiers.');">
-              <input type="hidden" name="id" value="<?= (int)$fit['id'] ?>">
-              <input type="hidden" name="csrf_token"
-                     value="<?= htmlspecialchars($_SESSION['csrf_fitandremana'], ENT_QUOTES, 'UTF-8') ?>">
-              <button type="submit" class="btn btn-sm btn-outline-danger w-100"
-                      onclick="event.stopPropagation()">
-                🗑️ Supprimer
-              </button>
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="<?= e($_SESSION['csrf_fitandremana']) ?>"
+                >
+
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        Nom du Fitandremana
+                    </label>
+
+                    <input
+                        type="text"
+                        name="nom"
+                        class="form-control"
+                        maxlength="255"
+                        placeholder="Saisir le nom du Fitandremana"
+                        required
+                    >
+
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    Ajouter
+                </button>
+
             </form>
-          </div>
-        <?php endif; ?>
 
-      </div>
-    </article>
-  </div>
-<?php endforeach; ?>
+            <small class="text-muted d-block mt-3">
+                Le numéro est attribué automatiquement selon l'ordre alphabétique.
+            </small>
+
+        </div>
+
+    <?php endif; ?>
+
+    <div class="section-card">
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+
+            <h3 class="section-title mb-0">
+                Liste des Fitandremana
+                <span class="badge bg-secondary">
+                    <?= count($fitandremana) ?>
+                </span>
+            </h3>
+
+            <input
+                type="search"
+                id="rechercheFit"
+                class="form-control search-input"
+                placeholder="Rechercher un Fitandremana..."
+            >
+
+        </div>
+
+        <?php if (empty($fitandremana)): ?>
+
+            <div class="alert alert-info mb-0">
+                Aucun Fitandremana enregistré pour ce SP.
             </div>
 
-            <div id="emptySearch" class="empty mt-3" style="display:none">
-                Tsy misy Fitandremana mifanaraka amin'ny fikarohana.
+        <?php else: ?>
+
+            <div class="row g-3" id="listeFit">
+
+                <?php foreach ($fitandremana as $fit): ?>
+
+                    <div class="col-md-6 col-lg-4 fit-item">
+
+                        <div class="fit-card">
+
+                            <div class="fit-number">
+                                FITANDREMANА N° <?= e($fit['numero']) ?>
+                            </div>
+
+                            <div class="fit-name">
+                                <?= e($fit['nom']) ?>
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-2">
+
+                                <a
+                                    href="type.php?fitandremana_id=<?= (int)$fit['id'] ?>"
+                                    class="btn btn-primary btn-sm"
+                                >
+                                    Voir les types
+                                </a>
+
+                                <?php if ($isAdmin): ?>
+
+                                    <a
+                                        href="modifier_fitandremana.php?id=<?= (int)$fit['id'] ?>"
+                                        class="btn btn-outline-secondary btn-sm"
+                                    >
+                                        Modifier
+                                    </a>
+
+                                    <form
+                                        method="POST"
+                                        action="supprimer_fitandremana.php"
+                                        onsubmit="return confirm('Voulez-vous vraiment supprimer ce Fitandremana ?');"
+                                    >
+
+                                        <input
+                                            type="hidden"
+                                            name="id"
+                                            value="<?= (int)$fit['id'] ?>"
+                                        >
+
+                                        <input
+                                            type="hidden"
+                                            name="sp_id"
+                                            value="<?= (int)$sp_id ?>"
+                                        >
+
+                                        <input
+                                            type="hidden"
+                                            name="csrf_token"
+                                            value="<?= e($_SESSION['csrf_fitandremana']) ?>"
+                                        >
+
+                                        <button
+                                            type="submit"
+                                            class="btn btn-outline-danger btn-sm"
+                                        >
+                                            Supprimer
+                                        </button>
+
+                                    </form>
+
+                                <?php endif; ?>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                <?php endforeach; ?>
+
             </div>
+
+            <div
+                id="aucunResultat"
+                class="alert alert-warning mt-3"
+                style="display:none;"
+            >
+                Aucun résultat trouvé.
+            </div>
+
         <?php endif; ?>
-    </section>
-</main>
+
+    </div>
+
+</div>
 
 <script>
-const fitSearch = document.getElementById('fitSearch');
-if (fitSearch) {
-    fitSearch.addEventListener('input', function () {
-        const query = this.value.trim().toLowerCase();
-        const items = document.querySelectorAll('.fit-item');
-        let visible = 0;
+document.getElementById('rechercheFit')?.addEventListener('input', function () {
 
-        items.forEach(function (item) {
-            const match = item.textContent.toLowerCase().includes(query);
-            item.style.display = match ? '' : 'none';
-            if (match) visible++;
-        });
+    const recherche = this.value.toLowerCase().trim();
+    const elements = document.querySelectorAll('.fit-item');
 
-        const empty = document.getElementById('emptySearch');
-        if (empty) {
-            empty.style.display = visible === 0 ? 'block' : 'none';
+    let visibles = 0;
+
+    elements.forEach(function (element) {
+
+        const contenu = element.textContent.toLowerCase();
+        const correspond = contenu.includes(recherche);
+
+        element.style.display = correspond ? '' : 'none';
+
+        if (correspond) {
+            visibles++;
         }
     });
-}
+
+    const aucun = document.getElementById('aucunResultat');
+
+    if (aucun) {
+        aucun.style.display = visibles === 0 ? 'block' : 'none';
+    }
+
+});
 </script>
 
 </body>

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/auth.php';
 require_login();
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/historique.php';
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$id || $id < 1) { http_response_code(400); exit('Dossier invalide.'); }
 $q=$pdo->prepare("SELECT d.*,
@@ -61,7 +62,15 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   else{$q=$pdo->prepare('UPDATE dossiers SET laharana_fitandremana=?,titre=?,description=?,statut=?,date_dossier=?,tomponny_tany=NULL,fokontany=NULL,kaominina=NULL,distrika=NULL,faritra=NULL,karazan_tany=NULL WHERE id=?');$q->execute([nul($g['laharana_fitandremana']),$g['titre'],nul($g['description']),$g['statut'],nul($g['date_dossier']),$id]);
    if($type==='TRANO'){$q=$pdo->prepare('INSERT INTO dossiers_trano(dossier_id,mpanofa,toerana,habe,asa,daty_debut,daty_fin,hofany,caution,situation,avenants) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE mpanofa=VALUES(mpanofa),toerana=VALUES(toerana),habe=VALUES(habe),asa=VALUES(asa),daty_debut=VALUES(daty_debut),daty_fin=VALUES(daty_fin),hofany=VALUES(hofany),caution=VALUES(caution),situation=VALUES(situation),avenants=VALUES(avenants)');$q->execute([$id,nul($tr['mpanofa']),nul($tr['toerana']),nul($tr['habe']),nul($tr['asa']),nul($tr['daty_debut']),nul($tr['daty_fin']),$tr['hofany']===''?null:(float)$tr['hofany'],$tr['caution']===''?null:(float)$tr['caution'],nul($tr['situation']),nul($tr['avenants'])]);}
    else{$q=$pdo->prepare('INSERT INTO dossiers_fiara(dossier_id,fiara,marque_modele,immatriculation,kilometrage,date_rapport,notes) VALUES(?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE fiara=VALUES(fiara),marque_modele=VALUES(marque_modele),immatriculation=VALUES(immatriculation),kilometrage=VALUES(kilometrage),date_rapport=VALUES(date_rapport),notes=VALUES(notes)');$q->execute([$id,nul($car['fiara']),nul($car['marque_modele']),nul($car['immatriculation']),$car['kilometrage']===''?null:(int)$car['kilometrage'],nul($car['date_rapport']),nul($car['notes'])]);$q=$pdo->prepare('DELETE FROM lignes_fiara WHERE dossier_id=?');$q->execute([$id]);$q=$pdo->prepare('INSERT INTO lignes_fiara(dossier_id,numero,piece,cout_remplacement,cout_reparation,remarque) VALUES(?,?,?,?,?,?)');foreach($lines as $l)$q->execute([$id,$l['numero']>0?$l['numero']:null,$l['piece'],$l['cout_remplacement'],$l['cout_reparation'],nul($l['remarque'])]);}
-  }$pdo->commit();header('Location: voir_dossier.php?id='.$id.'&modified=1');exit;
+  }
+  enregistrer_action(
+      $pdo,
+      'Modification',
+      $isFoibe ? 'Dossier Foibe' : 'Dossier SP',
+      (int)$id,
+      'Modification du dossier « ' . $g['titre'] . ' » (' . $type . ')'
+    );
+  $pdo->commit();header('Location: voir_dossier.php?id='.$id.'&modified=1');exit;
  }catch(Throwable $ex){if($pdo->inTransaction())$pdo->rollBack();error_log($ex->getMessage());$err='Erreur lors de la modification. Vérifiez les données puis réessayez.';}}
  foreach($g as $k=>$v)$d[$k]=$v;if($type==='TANY')foreach($land as $k=>$v)$d[$k]=$v;
 }

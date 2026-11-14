@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/historique.php';
 
 require_login();
 
@@ -92,6 +93,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $categorie,
         $id
     ]);
+
+    enregistrer_action(
+        $pdo,
+        'Modification',
+        'Document',
+        (int)$id,
+        'Modification du document « ' . $intitule .
+        ' » dans le dossier #' . (int)$document['dossier_id']
+    );
 
     header('Location: voir_dossier.php?id=' . (int)$document['dossier_id']);
     exit;

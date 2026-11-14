@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/auth.php';
 require_login();
 require_admin();
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/historique.php';
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -84,6 +85,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $description !== '' ? $description : null
                 ]);
 
+                $typeId = (int)$pdo->lastInsertId();
+
+                $catStmt = $pdo->prepare(
+                    "SELECT nom FROM foibe_categories WHERE id = ?"
+                );
+                $catStmt->execute([$categorieId]);
+                $nomCategorie = $catStmt->fetchColumn();
+
+                enregistrer_action(
+                    $pdo,
+                    'Création',
+                    'Type Foibe',
+                    $typeId,
+                    'Création du type « ' . $nom .
+                    ' » dans la catégorie « ' . $nomCategorie . ' »'
+                );
+
                 header('Location: gestion_types_foibe.php?success=added');
                 exit;
             }
@@ -108,6 +126,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $description !== '' ? $description : null,
                 $id
             ]);
+
+            $catStmt = $pdo->prepare(
+                "SELECT nom FROM foibe_categories WHERE id = ?"
+            );
+            $catStmt->execute([$categorieId]);
+            $nomCategorie = $catStmt->fetchColumn();
+
+            enregistrer_action(
+                $pdo,
+                'Modification',
+                'Type Foibe',
+                $id,
+                'Modification du type Foibe : « ' . $nom .
+                ' » dans la catégorie « ' . $nomCategorie . ' »'
+            );
 
             header('Location: gestion_types_foibe.php?success=updated');
             exit;
@@ -136,11 +169,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
             }
 
+            $info = $pdo->prepare("
+                SELECT t.nom, c.nom AS categorie_nom
+                FROM foibe_types_dossiers t
+                JOIN foibe_categories c ON c.id = t.categorie_id
+                WHERE t.id = ?
+            ");
+            $info->execute([$id]);
+            $typeSupprime = $info->fetch(PDO::FETCH_ASSOC);
+
+            if (!$typeSupprime) {
+                throw new Exception("Type Foibe introuvable.");
+            }
+
             $stmt = $pdo->prepare("
                 DELETE FROM foibe_types_dossiers
                 WHERE id = ?
             ");
             $stmt->execute([$id]);
+
+            enregistrer_action(
+                $pdo,
+                'Suppression',
+                'Type Foibe',
+                $id,
+                'Suppression du type « ' .
+                $typeSupprime['nom'] .
+                ' » de la catégorie « ' .
+                $typeSupprime['categorie_nom'] . ' »'
+            );
 
             header('Location: gestion_types_foibe.php?success=deleted');
             exit;

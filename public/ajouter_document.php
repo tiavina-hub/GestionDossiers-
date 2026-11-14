@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/auth.php';
 require_login();
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/historique.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Allow: POST');
@@ -192,6 +193,16 @@ try {
         ]);
 
         $ajoutes++;
+    }
+
+    if ($ajoutes > 0) {
+        enregistrer_action(
+            $pdo,
+            'Ajout',
+            'Document',
+            (int)$dossierId,
+            $ajoutes . ' document(s) ajouté(s) au dossier : ' . $intitule
+        );
     }
 
     $pdo->commit();

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/auth.php';
 require_login();
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/historique.php';
 
 function e($v): string {
     return htmlspecialchars((string)($v ?? ''), ENT_QUOTES, 'UTF-8');
@@ -73,8 +74,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             $id = (int)$pdo->lastInsertId();
-            header('Location: voir_dossier.php?id=' . $id);
-            exit;
+
+enregistrer_action(
+    $pdo,
+    'Création',
+    'Dossier Foibe',
+    $id,
+    'Création du dossier « ' . $titre .
+    ' » dans la catégorie « ' . $categorie['nom'] . ' »'
+);
+
+header('Location: voir_dossier.php?id=' . $id);
+exit;
         } catch (Throwable $ex) {
             error_log($ex->getMessage());
             $erreur = 'Tsy voatahiry ny dossier. Jereo ny logs.';

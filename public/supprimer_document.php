@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/auth.php';
 require_login();
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/historique.php';
 
 // Autoriser uniquement POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -31,7 +32,7 @@ if (!$id || $id < 1) {
 
 try {
     $stmt = $pdo->prepare(
-        'SELECT dossier_id, chemin
+        'SELECT dossier_id, chemin, intitule, nom_original
          FROM documents
          WHERE id = ?'
     );
@@ -50,6 +51,16 @@ try {
     if ($stmt->rowCount() !== 1) {
         throw new RuntimeException('Suppression impossible.');
     }
+
+    enregistrer_action(
+        $pdo,
+        'Suppression',
+        'Document',
+        (int)$id,
+        'Suppression du document « ' .
+        ($document['intitule'] ?: $document['nom_original']) .
+        ' » du dossier #' . (int)$document['dossier_id']
+    );
 
     // La suppression SQL est validée avant celle du fichier.
     $racine = realpath(__DIR__ . '/..');

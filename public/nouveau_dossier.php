@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/auth.php';
 require_login();
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/historique.php';
 
 $type_id = (int)($_GET['type_id'] ?? $_POST['type_id'] ?? 0);
 if ($type_id <= 0) { header('Location: index.php'); exit; }
@@ -57,6 +58,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $pdo->prepare('INSERT INTO lignes_fiara (dossier_id,numero,piece,cout_remplacement,cout_reparation,remarque) VALUES (?,?,?,?,?,?)');
                 foreach ($lignes as $l) if ($l['piece'] !== '') $stmt->execute([$id,$l['numero'] !== '' ? (int)$l['numero'] : null,$l['piece'],(float)$l['cout_remplacement'],(float)$l['cout_reparation'],$l['remarque'] ?: null]);
             }
+                        enregistrer_action(
+                $pdo,
+                'Création',
+                'Dossier SP',
+                $id,
+                'Création du dossier « ' . $valeurs['titre'] .
+                ' » (' . $type . ') dans ' .
+                $info['fitandremana_nom'] .
+                ' — SP ' . $info['numero_officiel']
+            );
+
             $pdo->commit();
             header('Location: voir_dossier.php?id='.$id); exit;
         } catch (Throwable $ex) {

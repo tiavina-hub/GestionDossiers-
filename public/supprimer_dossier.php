@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/auth.php';
 require_login();
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/historique.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header('Allow: POST');
@@ -27,6 +28,14 @@ if (
 }
 
 try {
+    $stmt = $pdo->prepare('SELECT titre, foibe_type_id FROM dossiers WHERE id = ?');
+    $stmt->execute([$id]);
+    $dossierInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$dossierInfo) {
+        throw new RuntimeException('Dossier introuvable.');
+    }
+
     $stmt = $pdo->prepare(
         'SELECT chemin FROM documents WHERE dossier_id = ?'
     );
@@ -43,6 +52,14 @@ try {
     }
 
     // Les lignes de documents sont supprimées par ON DELETE CASCADE.
+    enregistrer_action(
+        $pdo,
+        'Suppression',
+        !empty($dossierInfo['foibe_type_id']) ? 'Dossier Foibe' : 'Dossier SP',
+        (int)$id,
+        'Suppression du dossier « ' . $dossierInfo['titre'] . ' »'
+    );
+
     $pdo->commit();
 
     // Nettoyage des fichiers physiques après validation SQL.

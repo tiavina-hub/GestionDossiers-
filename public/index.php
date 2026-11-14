@@ -400,9 +400,15 @@ footer {
 
         <div class="quick-links">
             <a href="recherche.php" class="quick-link">🔎 Karohy antontan-taratasy</a>
-            <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin'): ?>
-                <a href="utilisateurs.php" class="quick-link admin">👥 Fitantanana mpampiasa</a>
-            <?php endif; ?>
+            <?php if (($_SESSION['user_role'] ?? '') === 'admin'): ?>
+    <a href="utilisateurs.php" class="quick-link admin">
+        Gestion des utilisateurs
+    </a>
+
+    <a href="historique.php" class="quick-link admin">
+        Historique des actions
+    </a>
+<?php endif; ?>
         </div>
     </section>
 

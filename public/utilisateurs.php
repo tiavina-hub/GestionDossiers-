@@ -4,6 +4,7 @@ require_once __DIR__ . '/../config/auth.php';
 require_admin();
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/historique.php';
 
 $message = null;
 $erreur = null;
@@ -58,6 +59,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajouter'])) {
                 $role
             ]);
 
+            $nouvelId = (int)$pdo->lastInsertId();
+
+            enregistrer_action(
+                $pdo,
+                'Création',
+                'Utilisateur',
+                $nouvelId,
+                'Création du compte « ' . $username .
+                ' » avec le rôle ' . $role
+            );
+
             $message = "Utilisateur ajouté avec succès.";
 
         } catch (PDOException $e) {
@@ -87,15 +99,40 @@ if (
 
     if ($id && $id !== (int) $_SESSION['user_id']) {
 
-        $stmt = $pdo->prepare("
-            UPDATE users
-            SET actif = IF(actif = 1, 0, 1)
+        $info = $pdo->prepare("
+            SELECT username, actif
+            FROM users
             WHERE id = ?
         ");
+        $info->execute([$id]);
+        $cible = $info->fetch(PDO::FETCH_ASSOC);
 
-        $stmt->execute([$id]);
+        if (!$cible) {
+            $erreur = "Utilisateur introuvable.";
+        } else {
+            $nouveauStatut = (int)$cible['actif'] === 1
+                ? 'Désactivation'
+                : 'Activation';
 
-        $message = "Statut du compte modifié.";
+            $stmt = $pdo->prepare("
+                UPDATE users
+                SET actif = IF(actif = 1, 0, 1)
+                WHERE id = ?
+            ");
+
+            $stmt->execute([$id]);
+
+            enregistrer_action(
+                $pdo,
+                $nouveauStatut,
+                'Utilisateur',
+                $id,
+                $nouveauStatut . ' du compte « ' .
+                $cible['username'] . ' »'
+            );
+
+            $message = "Statut du compte modifié.";
+        }
 
     } else {
 
@@ -128,14 +165,35 @@ if (
 
     } else {
 
-        $stmt = $pdo->prepare("
-            DELETE FROM users
+        $info = $pdo->prepare("
+            SELECT username
+            FROM users
             WHERE id = ?
         ");
+        $info->execute([$id]);
+        $cible = $info->fetch(PDO::FETCH_ASSOC);
 
-        $stmt->execute([$id]);
+        if (!$cible) {
+            $erreur = "Utilisateur introuvable.";
+        } else {
+            $stmt = $pdo->prepare("
+                DELETE FROM users
+                WHERE id = ?
+            ");
 
-        $message = "Utilisateur supprimé.";
+            $stmt->execute([$id]);
+
+            enregistrer_action(
+                $pdo,
+                'Suppression',
+                'Utilisateur',
+                $id,
+                'Suppression du compte « ' .
+                $cible['username'] . ' »'
+            );
+
+            $message = "Utilisateur supprimé.";
+        }
 
     }
 }
@@ -172,24 +230,45 @@ if (
 
     } else {
 
-        $hash = password_hash(
-            $nouveau_mot_de_passe,
-            PASSWORD_DEFAULT
-        );
-
-        $stmt = $pdo->prepare("
-            UPDATE users
-            SET password_hash = ?
+        $info = $pdo->prepare("
+            SELECT username
+            FROM users
             WHERE id = ?
         ");
+        $info->execute([$id]);
+        $cible = $info->fetch(PDO::FETCH_ASSOC);
 
-        $stmt->execute([
-            $hash,
-            $id
-        ]);
+        if (!$cible) {
+            $erreur = "Utilisateur introuvable.";
+        } else {
+            $hash = password_hash(
+                $nouveau_mot_de_passe,
+                PASSWORD_DEFAULT
+            );
 
-        $message =
-            "Mot de passe modifié avec succès.";
+            $stmt = $pdo->prepare("
+                UPDATE users
+                SET password_hash = ?
+                WHERE id = ?
+            ");
+
+            $stmt->execute([
+                $hash,
+                $id
+            ]);
+
+            enregistrer_action(
+                $pdo,
+                'Réinitialisation du mot de passe',
+                'Utilisateur',
+                $id,
+                'Réinitialisation du mot de passe du compte « ' .
+                $cible['username'] . ' »'
+            );
+
+            $message =
+                "Mot de passe modifié avec succès.";
+        }
     }
 }
 

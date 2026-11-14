@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/auth.php';
 require_login();
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/historique.php';
 
 function e($value): string { return htmlspecialchars((string)($value ?? ''), ENT_QUOTES, 'UTF-8'); }
 if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -57,6 +58,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $stmt = $pdo->prepare('UPDATE dossiers SET type_id=? WHERE id=?');
                 $stmt->execute([$nouveauTypeId, $id]);
+
+                enregistrer_action(
+                    $pdo,
+                    'Déplacement',
+                    'Dossier SP',
+                    (int)$id,
+                    'Déplacement du dossier « ' . $dossier['titre'] .
+                    ' » vers SP ' . $destination['numero_officiel'] .
+                    ' — ' . $destination['sp_nom'] .
+                    ' / ' . $destination['fit_nom']
+                );
+
                 header('Location: voir_dossier.php?id=' . $id . '&moved=1');
                 exit;
             } catch (Throwable $ex) {
