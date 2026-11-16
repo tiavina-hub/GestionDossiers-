@@ -10,61 +10,167 @@ if (est_connecte()) {
 
 $erreur = null;
 
+/* Vérifier si une tentative est autorisée */
+function tentative_autorisee(PDO $pdo, string $scope, string $key, int $limite): bool
+{
+    $pdo->beginTransaction();
+
+    try {
+        $stmt = $pdo->prepare("
+            INSERT IGNORE INTO login_attempts
+            (scope, rate_key, attempts, window_started_at)
+            VALUES (?, ?, 0, NOW())
+        ");
+        $stmt->execute([$scope, $key]);
+
+        $stmt = $pdo->prepare("
+            SELECT attempts, window_started_at, blocked_until
+            FROM login_attempts
+            WHERE scope = ? AND rate_key = ?
+            FOR UPDATE
+        ");
+        $stmt->execute([$scope, $key]);
+        $data = $stmt->fetch();
+
+        if (
+            $data['blocked_until'] !== null &&
+            strtotime($data['blocked_until']) > time()
+        ) {
+            $pdo->commit();
+            return false;
+        }
+
+        if (
+            strtotime($data['window_started_at']) < time() - 900 ||
+            (
+                $data['blocked_until'] !== null &&
+                strtotime($data['blocked_until']) <= time()
+            )
+        ) {
+            $stmt = $pdo->prepare("
+                UPDATE login_attempts
+                SET attempts = 0,
+                    window_started_at = NOW(),
+                    blocked_until = NULL
+                WHERE scope = ? AND rate_key = ?
+            ");
+            $stmt->execute([$scope, $key]);
+        }
+
+        $pdo->commit();
+        return true;
+
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+}
+
+/* Enregistrer un échec */
+function enregistrer_echec(PDO $pdo, string $scope, string $key, int $limite): void
+{
+    $stmt = $pdo->prepare("
+        UPDATE login_attempts
+        SET attempts = attempts + 1,
+            blocked_until = CASE
+                WHEN attempts + 1 >= ?
+                THEN DATE_ADD(NOW(), INTERVAL 15 MINUTE)
+                ELSE blocked_until
+            END
+        WHERE scope = ? AND rate_key = ?
+    ");
+    $stmt->execute([$limite, $scope, $key]);
+}
+
+/* Effacer les tentatives après une connexion réussie */
+function reinitialiser_tentatives(PDO $pdo, string $scope, string $key): void
+{
+    $stmt = $pdo->prepare("
+        DELETE FROM login_attempts
+        WHERE scope = ? AND rate_key = ?
+    ");
+    $stmt->execute([$scope, $key]);
+}
+
+/* Traitement du formulaire */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    if ($username === '' || $password === '') {
+    if (!csrf_valide($_POST['csrf_token'] ?? null)) {
 
-        $erreur = 'Veuillez remplir tous les champs.';
+        $erreur = 'Tsy mety ny fangatahana. Havaozy ny pejy.';
+
+    } elseif ($username === '' || $password === '') {
+
+        $erreur = 'Fenoy azafady ny saha rehetra.';
 
     } else {
 
-        $stmt = $pdo->prepare("
-            SELECT
-                id,
-                username,
-                password_hash,
-                nom_complet,
-                role,
-                actif
-            FROM users
-            WHERE username = ?
-            LIMIT 1
-        ");
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 
-        $stmt->execute([$username]);
+        $usernameKey = hash('sha256', strtolower($username));
+        $ipKey = hash('sha256', $ip);
 
-        $user = $stmt->fetch();
+        $autoriseUtilisateur = tentative_autorisee(
+            $pdo, 'user', $usernameKey, 5
+        );
 
-        if (
-            $user &&
-            (int) $user['actif'] === 1 &&
-            password_verify($password, $user['password_hash'])
-        ) {
+        $autoriseIP = tentative_autorisee(
+            $pdo, 'ip', $ipKey, 20
+        );
 
-            session_regenerate_id(true);
+        if (!$autoriseUtilisateur || !$autoriseIP) {
 
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['nom_complet'] = $user['nom_complet'];
-            $_SESSION['user_role'] = $user['role'];
-
-            $stmt = $pdo->prepare("
-                UPDATE users
-                SET derniere_connexion = NOW()
-                WHERE id = ?
-            ");
-
-            $stmt->execute([$user['id']]);
-
-            header('Location: index.php');
-            exit;
+            $erreur = 'Be loatra ny andrana. Andramo indray afaka 15 minitra.';
 
         } else {
 
-            $erreur = 'Identifiant ou mot de passe incorrect.';
+            $stmt = $pdo->prepare("
+                SELECT id, username, password_hash, nom_complet, role, actif
+                FROM users
+                WHERE username = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$username]);
+            $user = $stmt->fetch();
+
+            if (
+                $user &&
+                (int) $user['actif'] === 1 &&
+                password_verify($password, $user['password_hash'])
+            ) {
+
+                reinitialiser_tentatives($pdo, 'user', $usernameKey);
+                reinitialiser_tentatives($pdo, 'ip', $ipKey);
+
+                session_regenerate_id(true);
+
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['nom_complet'] = $user['nom_complet'];
+                $_SESSION['user_role'] = $user['role'];
+
+                $stmt = $pdo->prepare("
+                    UPDATE users
+                    SET derniere_connexion = NOW()
+                    WHERE id = ?
+                ");
+                $stmt->execute([$user['id']]);
+
+                header('Location: index.php');
+                exit;
+
+            } else {
+
+                enregistrer_echec($pdo, 'user', $usernameKey, 5);
+                enregistrer_echec($pdo, 'ip', $ipKey, 20);
+
+                $erreur = "Diso ny anaran ny mpampiasa na ny teny miafina."; 
+            }
         }
     }
 }
@@ -72,115 +178,690 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ?>
 
 <!DOCTYPE html>
-<html lang="fr">
-
+<html lang="mg">
 <head>
-
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+    <title>Hiditra | Fitantanana antontan-taratasy</title>
 
-    <title>Connexion</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    >
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 
+    <style>
+        :root {
+            --navy: #101b32;
+            --navy-light: #192944;
+            --gold: #c9a45c;
+            --gold-light: #e7cf98;
+            --cream: #f8f5ee;
+            --text: #26334a;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            background: var(--cream);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        .page {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 1.05fr 0.95fr;
+        }
+
+        /* Partie décorative */
+        .welcome-panel {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 55px;
+            overflow: hidden;
+            text-align: center;
+            color: white;
+            background:
+                radial-gradient(circle at 50% 38%, rgba(201,164,92,.18), transparent 35%),
+                linear-gradient(145deg, #0b1427, #192944 65%, #35253a);
+        }
+
+        .welcome-panel::before,
+        .welcome-panel::after {
+            content: "";
+            position: absolute;
+            width: 360px;
+            height: 360px;
+            border: 1px solid rgba(201,164,92,.16);
+            border-radius: 50%;
+            animation: rotate 35s linear infinite;
+        }
+
+        .welcome-panel::after {
+            width: 500px;
+            height: 500px;
+            animation-direction: reverse;
+        }
+
+        .ornament {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            border: 1px solid rgba(201,164,92,.12);
+            transform: rotate(45deg);
+        }
+
+        .ornament.one {
+            top: -75px;
+            left: -75px;
+        }
+
+        .ornament.two {
+            bottom: -75px;
+            right: -75px;
+        }
+
+        .welcome-content {
+            position: relative;
+            z-index: 2;
+            max-width: 470px;
+            animation: fadeUp 1s ease both;
+        }
+
+        .church-symbol {
+            width: 112px;
+            height: 112px;
+            margin: 0 auto 30px;
+            display: grid;
+            place-items: center;
+            border: 1px solid rgba(231,207,152,.65);
+            border-radius: 50%;
+            color: var(--gold-light);
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 65px;
+            box-shadow: 0 0 45px rgba(201,164,92,.15);
+            animation: glow 4s ease-in-out infinite;
+        }
+
+        .welcome-content h1 {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: clamp(35px, 4vw, 52px);
+            font-weight: 600;
+            line-height: 1.12;
+            margin-bottom: 18px;
+        }
+
+        .welcome-content h1 span {
+            color: var(--gold-light);
+        }
+
+        .welcome-content p {
+            color: rgba(255,255,255,.72);
+            line-height: 1.8;
+            font-size: 14px;
+        }
+
+        .gold-line {
+            width: 65px;
+            height: 2px;
+            background: var(--gold);
+            margin: 25px auto;
+        }
+
+        .welcome-quote {
+            margin-top: 42px;
+            color: var(--gold-light);
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 19px;
+            font-style: italic;
+        }
+
+        /* Partie formulaire */
+        .login-panel {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 45px 25px;
+            background:
+                radial-gradient(circle at 100% 0%, rgba(201,164,92,.09), transparent 30%),
+                var(--cream);
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 420px;
+            animation: fadeUp .8s .15s ease both;
+        }
+
+        .mobile-symbol {
+            display: none;
+            color: var(--gold);
+            font-size: 44px;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .eyebrow {
+            color: #a17b3e;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .login-card h2 {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 39px;
+            font-weight: 700;
+            color: var(--navy);
+            margin-bottom: 7px;
+        }
+
+        .subtitle {
+            color: #788092;
+            font-size: 13px;
+            margin-bottom: 32px;
+        }
+
+        .form-label {
+            color: #39465c;
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 9px;
+        }
+
+        .input-wrap {
+            position: relative;
+        }
+
+        .input-wrap .form-control {
+            height: 53px;
+            border: 1px solid #e2dfd6;
+            border-radius: 9px;
+            padding: 12px 15px 12px 45px;
+            background: rgba(255,255,255,.8);
+            font-size: 13px;
+            transition: .25s ease;
+        }
+
+        .input-wrap .form-control:focus {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 4px rgba(201,164,92,.13);
+            background: white;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a28b61;
+            font-size: 17px;
+            pointer-events: none;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: 0;
+            background: transparent;
+            color: #7b8290;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .password-toggle:hover {
+            color: var(--navy);
+        }
+
+        .login-button {
+            height: 54px;
+            border: 0;
+            border-radius: 9px;
+            width: 100%;
+            margin-top: 12px;
+            background: linear-gradient(110deg, #172640, #293b59);
+            color: white;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: .5px;
+            box-shadow: 0 8px 20px rgba(16,27,50,.15);
+            transition: transform .25s, box-shadow .25s, background .25s;
+        }
+
+        .login-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 25px rgba(16,27,50,.23);
+            background: linear-gradient(110deg, #293b59, #172640);
+        }
+
+        .login-button:active {
+            transform: translateY(0);
+        }
+
+        .security-note {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 25px;
+            color: #89909c;
+            font-size: 11px;
+        }
+
+        .security-note span {
+            color: #a17b3e;
+        }
+
+        .alert {
+            border-radius: 9px;
+            font-size: 12px;
+        }
+
+        .footer {
+            margin-top: 45px;
+            color: #a0a3aa;
+            text-align: center;
+            font-size: 10px;
+            letter-spacing: .5px;
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(22px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes glow {
+            0%, 100% {
+                box-shadow: 0 0 25px rgba(201,164,92,.10);
+            }
+            50% {
+                box-shadow: 0 0 55px rgba(201,164,92,.30);
+            }
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 850px) {
+            .page {
+                grid-template-columns: 1fr;
+            }
+
+            .welcome-panel {
+                display: none;
+            }
+
+            .login-panel {
+                min-height: 100vh;
+                padding: 35px 22px;
+            }
+
+            .mobile-symbol {
+                display: block;
+            }
+
+            .login-card h2 {
+                text-align: center;
+                font-size: 35px;
+            }
+
+            .eyebrow,
+            .subtitle {
+                text-align: center;
+            }
+
+            .footer {
+                margin-top: 35px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: .01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: .01ms !important;
+            }
+        }
+
+
+        /* Nouveau design : photo chaleureuse + carte vitrée semi-transparente */
+        body {
+            min-height: 100vh;
+            background: #17130f url('../assets/login-church-bg.png') center center / cover fixed no-repeat;
+            color: #fff;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background: linear-gradient(110deg, rgba(18,13,8,.34), rgba(20,14,8,.52));
+            pointer-events: none;
+        }
+
+        .page {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 22px;
+            padding: 34px 20px;
+            background: transparent;
+        }
+
+        .verse-banner {
+            width: min(100%, 760px);
+            padding: 0 20px;
+            text-align: center;
+            color: #fff0c9;
+            text-shadow: 0 3px 18px rgba(0,0,0,.75);
+            animation: fadeUp .9s ease both;
+        }
+
+        .verse-banner .verse-mark {
+            display: block;
+            color: #f2cc7d;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 54px;
+            line-height: .8;
+            margin-bottom: 5px;
+        }
+
+        .verse-banner blockquote {
+            margin: 0 auto 8px;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: clamp(25px, 3.1vw, 37px);
+            font-weight: 600;
+            line-height: 1.18;
+            letter-spacing: .2px;
+        }
+
+        .verse-banner .verse-reference {
+            color: #f1cf8b;
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .welcome-panel { display: none; }
+
+        .login-panel {
+            width: 100%;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            background: transparent;
+        }
+
+        .login-card {
+            width: min(100%, 440px);
+            padding: 38px 38px 30px;
+            border: 1px solid rgba(255,255,255,.25);
+            border-radius: 22px;
+            background: rgba(20, 18, 16, .66);
+            -webkit-backdrop-filter: blur(15px);
+            backdrop-filter: blur(15px);
+            box-shadow: 0 24px 70px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.12);
+            color: #fff;
+        }
+
+        .mobile-symbol {
+            display: block;
+            color: #f0c878;
+            font-size: 48px;
+            line-height: 1;
+            margin-bottom: 16px;
+            text-shadow: 0 0 24px rgba(240,200,120,.45);
+        }
+
+        .eyebrow {
+            color: #f0d69e;
+            text-align: center;
+            letter-spacing: 2px;
+            margin-bottom: 9px;
+        }
+
+        .login-card h2 {
+            color: #fff4df;
+            text-align: center;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 42px;
+            margin-bottom: 8px;
+        }
+
+        .subtitle {
+            color: rgba(255,255,255,.76);
+            text-align: center;
+            margin-bottom: 27px;
+        }
+
+        .form-label {
+            color: #f8e9c9;
+            font-size: 12px;
+        }
+
+        .input-wrap .form-control {
+            height: 51px;
+            border: 1px solid rgba(255,255,255,.22);
+            border-radius: 10px;
+            color: #fff;
+            background: rgba(255,255,255,.10);
+            padding-right: 65px;
+        }
+
+        .input-wrap .form-control::placeholder { color: rgba(255,255,255,.58); }
+        .input-wrap .form-control:focus {
+            color: #fff;
+            border-color: #e7c276;
+            background: rgba(255,255,255,.15);
+            box-shadow: 0 0 0 4px rgba(231,194,118,.14);
+        }
+
+        .input-icon { color: #e8c77f; }
+        .password-toggle { color: #f0d69e; }
+        .password-toggle:hover { color: #fff; }
+
+        .login-button {
+            height: 52px;
+            border-radius: 10px;
+            color: #2b1b08;
+            background: linear-gradient(110deg, #e7bd69, #f5d99c 55%, #d8a84f);
+            box-shadow: 0 9px 24px rgba(0,0,0,.22);
+        }
+        .login-button:hover {
+            color: #241605;
+            background: linear-gradient(110deg, #f2d18c, #ffe6b2 55%, #e5b85f);
+        }
+
+        .security-note { color: rgba(255,255,255,.72); margin-top: 22px; }
+        .security-note span { color: #f0cf88; }
+        .footer { color: rgba(255,255,255,.55); margin-top: 27px; }
+        .alert { background: rgba(255,235,235,.95); }
+
+        @media (max-width: 600px) {
+            body { background-attachment: scroll; }
+            .page { padding: 25px 14px; gap: 16px; }
+            .verse-banner { padding: 0 8px; }
+            .verse-banner .verse-mark { font-size: 42px; }
+            .verse-banner blockquote { font-size: 25px; }
+            .verse-banner .verse-reference { font-size: 10px; }
+            .login-card { padding: 30px 23px 24px; border-radius: 18px; }
+            .login-card h2 { font-size: 37px; }
+        }
+
+    </style>
 </head>
 
-<body class="bg-light">
+<body>
 
-<div class="container">
+<div class="page">
 
-    <div
-        class="row justify-content-center align-items-center"
-        style="min-height: 100vh;"
-    >
+    <section class="verse-banner" aria-label="Andinin-teny ao amin'ny Baiboly">
+        <span class="verse-mark">“</span>
+        <blockquote>« Aoka ny zavatra rehetra hatao amin'ny fahamendrehana sy ny filaminana. »</blockquote>
+        <div class="verse-reference">1 Korintiana 14:40</div>
+    </section>
 
-        <div class="col-md-5 col-lg-4">
+    <section class="welcome-panel">
+        <div class="ornament one"></div>
+        <div class="ornament two"></div>
 
-            <div class="card shadow">
+        <div class="welcome-content">
+            <div class="church-symbol">✝</div>
 
-                <div class="card-body p-4">
+            <h1>
+                Fitantanana ny<br>
+                <span>antontan-taratasy</span>
+            </h1>
 
-                    <div class="text-center mb-4">
+            <div class="gold-line"></div>
 
-                        <h1>📁</h1>
+            <p>
+                Sehatra natao hanamorana ny fandaminana,
+                ny fanaraha-maso ary ny fitantanana ny antontan-taratasin'ny Fiangonana.
+            </p>
 
-                        <h3>
-                            Gestion des dossiers
-                        </h3>
+            <div class="welcome-quote">
+                « Aoka ny zavatra rehetra hatao amin'ny fahamendrehana sy ny filaminana. »
+                <br>
+                <small>1 Corinthiens 14:40</small>
+            </div>
+        </div>
+    </section>
 
-                        <p class="text-muted">
-                            Connexion
-                        </p>
+    <main class="login-panel">
+        <div class="login-card">
 
-                    </div>
+            <div class="mobile-symbol">✝</div>
 
-                    <?php if ($erreur): ?>
+            <div class="eyebrow">Sehatra azo antoka</div>
 
-                        <div class="alert alert-danger">
-                            <?= htmlspecialchars($erreur) ?>
-                        </div>
+            <h2>Tongasoa</h2>
 
-                    <?php endif; ?>
+            <p class="subtitle">
+                Midira mba hahafahanao mampiasa ity sehatra ity.
+            </p>
 
-                    <form method="POST">
+            <?php if ($erreur): ?>
+                <div class="alert alert-danger" role="alert">
+                    <?= htmlspecialchars($erreur, ENT_QUOTES, 'UTF-8') ?>
+                </div>
+            <?php endif; ?>
 
-                        <div class="mb-3">
+            <form method="POST" action="login.php">
 
-                            <label class="form-label">
-                                Identifiant
-                            </label>
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="<?= htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>"
+                >
 
-                            <input
-                                type="text"
-                                name="username"
-                                class="form-control"
-                                autocomplete="username"
-                                required
-                            >
+                <div class="mb-4">
+                    <label class="form-label" for="username">
+                        Anaran'ny mpampiasa
+                    </label>
 
-                        </div>
-
-                        <div class="mb-4">
-
-                            <label class="form-label">
-                                Mot de passe
-                            </label>
-
-                            <input
-                                type="password"
-                                name="password"
-                                class="form-control"
-                                autocomplete="current-password"
-                                required
-                            >
-
-                        </div>
-
-                        <button
-                            type="submit"
-                            class="btn btn-primary w-100"
+                    <div class="input-wrap">
+                        <span class="input-icon">♙</span>
+                        <input
+                            type="text"
+                            id="username"
+                            name="username"
+                            class="form-control"
+                            placeholder="Ampidiro ny anaranao"
+                            autocomplete="username"
+                            required
                         >
-                            🔐 Se connecter
-                        </button>
-
-                    </form>
-
+                    </div>
                 </div>
 
+                <div class="mb-4">
+                    <label class="form-label" for="password">
+                        Teny miafina
+                    </label>
+
+                    <div class="input-wrap">
+                        <span class="input-icon">♧</span>
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            class="form-control"
+                            placeholder="Ampidiro ny teny miafinao"
+                            autocomplete="current-password"
+                            required
+                        >
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            id="togglePassword"
+                        >
+                            Asehoy
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="login-button">
+                    HIDITRA &nbsp; →
+                </button>
+
+            </form>
+
+            <div class="security-note">
+                <span>◆</span>
+                Fidirana voaaro · Ho an'ireo nahazo alalana ihany
+            </div>
+
+            <div class="footer">
+                FITANTANANA ANTONTAN-TARATASY · SEHATRA FITANTANANA
             </div>
 
         </div>
-
-    </div>
+    </main>
 
 </div>
+
+<script>
+    const passwordInput = document.getElementById('password');
+    const togglePassword = document.getElementById('togglePassword');
+
+    togglePassword.addEventListener('click', function () {
+        const isPassword = passwordInput.type === 'password';
+
+        passwordInput.type = isPassword ? 'text' : 'password';
+        togglePassword.textContent = isPassword ? 'Afeno' : 'Asehoy';
+    });
+</script>
 
 </body>
 </html>
