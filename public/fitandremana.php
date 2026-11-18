@@ -253,7 +253,197 @@ $fitandremana = $stmt->fetchAll(PDO::FETCH_ASSOC);
         .search-input {
             max-width: 350px;
         }
-    </style>
+    
+    
+    /* DESIGN FJKM NAVY GOLD */
+
+    body {
+        background: #f6f4ee !important;
+        color: #202b3d;
+        font-family: "DM Sans", Arial, sans-serif;
+        min-height: 100vh;
+    }
+
+    .main-container {
+        max-width: 1320px;
+        margin: 35px auto 70px;
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+
+    .page-header {
+        background: linear-gradient(115deg, #101b32, #192944 70%, #29344a);
+        color: white;
+        padding: 40px 45px;
+        border-radius: 25px;
+        margin-bottom: 28px;
+        box-shadow: 0 22px 50px rgba(16,27,50,.16);
+        border: 0;
+    }
+
+    .page-header h2 {
+        color: white;
+        font-family: "Playfair Display", Georgia, serif;
+        font-size: clamp(28px, 4vw, 40px);
+        font-weight: 700;
+    }
+
+    .page-header .text-muted {
+        color: #e6d1a0 !important;
+        font-size: 14px;
+    }
+
+    .page-header .btn-outline-secondary {
+        color: #e6d1a0;
+        border-color: #c9a45c;
+        border-radius: 10px;
+        font-weight: 700;
+    }
+
+    .page-header .btn-outline-secondary:hover {
+        background: #c9a45c;
+        color: #101b32;
+    }
+
+    .section-card {
+        background: #fffefa;
+        border: 1px solid #e8e5dc;
+        border-radius: 18px;
+        padding: 28px;
+        margin-bottom: 25px;
+        box-shadow: 0 12px 35px rgba(16,27,50,.05);
+    }
+
+    .section-title {
+        color: #101b32;
+        font-family: "Playfair Display", Georgia, serif;
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 20px;
+    }
+
+    .fit-card {
+        background: #fffefa;
+        border: 1px solid #e8e5dc;
+        border-radius: 17px;
+        padding: 23px;
+        min-height: 185px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        transition: transform .2s, box-shadow .2s, border-color .2s;
+    }
+
+    .fit-card:hover {
+        transform: translateY(-5px);
+        border-color: #d5c49f;
+        box-shadow: 0 18px 40px rgba(16,27,50,.09);
+    }
+
+    .fit-number {
+        color: #a28a5d;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+    }
+
+    .fit-name {
+        color: #101b32;
+        font-family: "Playfair Display", Georgia, serif;
+        font-size: 21px;
+        line-height: 1.4;
+        font-weight: 700;
+        margin: 17px 0 22px;
+        overflow-wrap: anywhere;
+    }
+
+    .search-input {
+        max-width: 350px;
+        border: 1px solid #e8e5dc;
+        border-radius: 10px;
+        padding: 11px 14px;
+    }
+
+    .form-control {
+        border-color: #e1ded5;
+        border-radius: 10px;
+        padding: 11px 13px;
+    }
+
+    .form-control:focus {
+        border-color: #c9a45c;
+        box-shadow: 0 0 0 .2rem rgba(201,164,92,.15);
+    }
+
+    .form-label {
+        color: #192944;
+        font-weight: 700;
+    }
+
+    .btn {
+        border-radius: 9px;
+        font-weight: 700;
+        padding: 9px 14px;
+    }
+
+    .btn-primary {
+        background: #101b32;
+        border-color: #101b32;
+    }
+
+    .btn-primary:hover {
+        background: #293d5d;
+        border-color: #293d5d;
+    }
+
+    .btn-outline-secondary {
+        color: #192944;
+        border-color: #c9a45c;
+    }
+
+    .btn-outline-secondary:hover {
+        background: #c9a45c;
+        color: #101b32;
+        border-color: #c9a45c;
+    }
+
+    .btn-outline-danger {
+        border-color: #ead8d4;
+    }
+
+    .alert {
+        border-radius: 12px;
+    }
+
+    @media(max-width: 600px) {
+        .main-container {
+            width: 100%;
+            margin: 20px auto 40px;
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+
+        .page-header {
+            padding: 28px 23px;
+            border-radius: 18px;
+        }
+
+        .section-card {
+            padding: 20px;
+        }
+
+        .d-flex.justify-content-between {
+            align-items: stretch !important;
+        }
+
+        .search-input {
+            max-width: 100%;
+            width: 100%;
+        }
+    }
+    
+</style>
 </head>
 
 <body>

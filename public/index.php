@@ -711,8 +711,8 @@ main{
 
    <div class="eyebrow">FJKM · Sehatry ny fitantanana</div>
 
-   <h1>Tongasoa eto amin'ny<br>rafitra fitantanana FJKM</h1>
-
+   <h1>Tongasoa eto amin'ny<br>Sampandraharaha Fitantanana Fananana FJKM</h1>
+   <h2>DEPARTEMENTA FANANANA, FAMPAMOKARANA & FAMPANDROSOANA ary SOSIALY</h2>
    <p>
     Toerana iray handaminana sy hitantanana ny antontan-taratasy.
     Safidio ny Synodam-Paritany na ny sokajy Foibe tianao hidirana.

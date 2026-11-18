@@ -114,6 +114,276 @@ th{background:#f3f6f0}
 .search-row{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
 .search-row input{flex:1;min-width:220px;padding:12px;border:1px solid #ccd6cc;border-radius:8px;font-size:15px}
 @media(max-width:600px){table{font-size:14px}th,td{padding:8px}}
+
+/* DESIGN FJKM NAVY GOLD FOIBE */
+
+:root {
+    --navy: #101b32;
+    --navy-light: #293d5d;
+    --gold: #c9a45c;
+    --gold-light: #e6d1a0;
+    --cream: #f6f4ee;
+    --white: #fffefa;
+    --text: #202b3d;
+    --muted: #778091;
+    --border: #e8e5dc;
+}
+
+body {
+    background: var(--cream);
+    color: var(--text);
+    font-family: "DM Sans", Arial, sans-serif;
+    min-height: 100vh;
+}
+
+header {
+    background: linear-gradient(115deg, #101b32, #192944 70%, #29344a);
+    color: white;
+    padding: 42px max(5%, calc((100% - 1200px) / 2));
+    box-shadow: 0 12px 35px rgba(16,27,50,.12);
+}
+
+header h1 {
+    color: white;
+    font-family: "Playfair Display", Georgia, serif;
+    font-size: clamp(27px, 4vw, 39px);
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+header p {
+    color: var(--gold-light);
+    margin: 12px 0 0;
+    font-size: 15px;
+}
+
+main {
+    max-width: 1250px;
+    margin: 35px auto 70px;
+    padding: 0 24px;
+}
+
+h2, h3 {
+    color: var(--navy);
+    font-family: "Playfair Display", Georgia, serif;
+    font-weight: 700;
+}
+
+h2 {
+    font-size: 25px;
+    margin: 25px 0 12px;
+}
+
+h3 {
+    font-size: 21px;
+}
+
+a {
+    color: var(--navy-light);
+    text-decoration: none;
+}
+
+a:hover {
+    color: #98763d;
+}
+
+.muted {
+    color: var(--muted);
+    line-height: 1.6;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 22px;
+}
+
+.card, .panel, .search-box, .empty {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(16,27,50,.045);
+}
+
+.card {
+    display: block;
+    padding: 25px;
+    min-height: 170px;
+    transition: transform .2s, box-shadow .2s, border-color .2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    border-color: var(--gold);
+    box-shadow: 0 18px 38px rgba(16,27,50,.09);
+}
+
+.card h2 {
+    font-size: 22px;
+    margin: 0 0 13px;
+}
+
+.card p {
+    color: var(--muted);
+    line-height: 1.6;
+}
+
+.count {
+    display: inline-block;
+    color: #a28a5d;
+    font-size: 13px;
+    font-weight: 800;
+    margin-top: 12px;
+}
+
+.panel {
+    padding: 25px;
+    margin: 20px 0;
+}
+
+.actions {
+    display: flex;
+    gap: 11px;
+    flex-wrap: wrap;
+    margin: 0 0 25px;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 11px 17px;
+    border-radius: 9px;
+    background: var(--navy);
+    color: white;
+    font-weight: 700;
+    border: 1px solid var(--navy);
+    cursor: pointer;
+    transition: .2s;
+}
+
+.btn:hover {
+    background: var(--navy-light);
+    border-color: var(--navy-light);
+    color: white;
+}
+
+.btn-light {
+    background: #fffefa;
+    color: var(--navy);
+    border-color: var(--gold);
+}
+
+.btn-light:hover {
+    background: var(--gold);
+    color: var(--navy);
+    border-color: var(--gold);
+}
+
+.search-box {
+    padding: 25px;
+    margin: 20px 0 30px;
+}
+
+.search-box label {
+    color: var(--navy);
+    font-size: 15px;
+}
+
+.search-row {
+    display: flex;
+    gap: 11px;
+    margin-top: 13px;
+    flex-wrap: wrap;
+}
+
+.search-row input {
+    flex: 1;
+    min-width: 220px;
+    padding: 13px 15px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 15px;
+    background: white;
+    color: var(--text);
+    outline: none;
+}
+
+.search-row input:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(201,164,92,.14);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 550px;
+}
+
+th, td {
+    text-align: left;
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--border);
+}
+
+th {
+    background: #f2efe7;
+    color: var(--navy);
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+td {
+    color: var(--text);
+}
+
+tbody tr:hover {
+    background: #faf8f2;
+}
+
+td a {
+    color: #98763d;
+    font-weight: 800;
+}
+
+.empty {
+    padding: 25px;
+    color: var(--muted);
+}
+
+@media(max-width: 650px) {
+    header {
+        padding: 30px 22px;
+    }
+
+    main {
+        margin: 22px auto 45px;
+        padding: 0 15px;
+    }
+
+    .actions {
+        gap: 8px;
+    }
+
+    .btn {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+
+    .panel, .search-box {
+        padding: 18px;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    table {
+        font-size: 13px;
+    }
+}
+
 </style>
 </head>
 <body>
