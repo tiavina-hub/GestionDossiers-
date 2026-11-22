@@ -97,44 +97,358 @@ $documentDeleted = isset($_GET['document_deleted']);
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($dossier['titre']) ?> | Dossier <?= e($dossier['type_nom']) ?></title>
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:Arial,sans-serif;background:#f3f6fb;color:#172033}
-header{background:linear-gradient(120deg,#142b4a,#1769aa);color:white;padding:25px 5%}
-header h1{margin:0 0 8px;font-size:25px}
-header p{margin:0;color:#e0edff}
-.container{max-width:1050px;margin:25px auto;padding:0 18px}
-.breadcrumb{font-size:14px;color:#64748b;margin-bottom:22px;line-height:2}
-a{color:#1769aa;text-decoration:none;font-weight:600}
-.panel{background:white;border-radius:15px;padding:25px;margin-bottom:20px;box-shadow:0 5px 22px #1720330b}
-h2{margin:0 0 20px;font-size:21px}
-h3{font-size:16px;color:#1769aa;padding-bottom:12px;border-bottom:1px solid #e8eef5;margin:25px 0 15px}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.field{padding:13px;background:#f8fafc;border-radius:9px;min-width:0}
-.field small{display:block;color:#64748b;margin-bottom:8px}
-.field strong{display:block;overflow-wrap:anywhere;white-space:pre-wrap;font-size:15px}
-.badge{display:inline-block;padding:6px 11px;background:#e5f0ff;color:#1769aa;border-radius:20px;font-size:13px}
-.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
-.btn{display:inline-block;padding:11px 15px;border-radius:9px;font-size:14px;font-weight:600;border:0;cursor:pointer}
-.primary{background:#1769aa;color:white}
-.secondary{background:#edf2f7;color:#334155}
-.danger{background:#dc2626;color:white}
-.success{padding:12px;border-radius:8px;background:#dcfce7;color:#166534;margin:12px 0}
-.error{padding:12px;border-radius:8px;background:#fee2e2;color:#991b1b;margin:12px 0}
-.upload-form{display:flex;flex-direction:column;gap:14px}
-input[type=file]{padding:12px;border:1px solid #cbd5e1;border-radius:8px;width:100%;background:#f8fafc}
-.hint{font-size:13px;color:#64748b;line-height:1.6}
-.table-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;min-width:570px}
-th,td{text-align:left;padding:13px 10px;border-bottom:1px solid #e8eef5;font-size:14px;vertical-align:middle}
-th{background:#f8fafc;color:#475569}
-td form{display:inline}
-.inline-actions{display:flex;gap:8px;flex-wrap:wrap}
-.empty{padding:22px;text-align:center;color:#64748b;background:#f8fafc;border-radius:9px}
-@media(max-width:650px){
- header{padding:22px 18px}.container{padding:0 12px}
- .panel{padding:18px}.grid{grid-template-columns:1fr}
- .actions .btn{width:100%;text-align:center}
+
+* {
+    box-sizing: border-box;
 }
+
+:root {
+    --navy: #101b32;
+    --navy-light: #293d5d;
+    --gold: #c9a45c;
+    --gold-light: #e6d1a0;
+    --cream: #f6f4ee;
+    --white: #fffefa;
+    --text: #202b3d;
+    --muted: #778091;
+    --border: #e8e5dc;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    line-height: 1.6;
+}
+
+header {
+    background: linear-gradient(120deg, var(--navy), var(--navy-light));
+    color: white;
+    padding: 30px 5%;
+    border-bottom: 4px solid var(--gold);
+}
+
+header h1 {
+    margin: 0 0 8px;
+    font-family: Georgia, serif;
+    font-size: 27px;
+    letter-spacing: .3px;
+}
+
+header p {
+    margin: 0;
+    color: var(--gold-light);
+}
+
+.container {
+    max-width: 1150px;
+    margin: 30px auto;
+    padding: 0 20px;
+}
+
+.breadcrumb {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 24px;
+    line-height: 2;
+}
+
+a {
+    color: var(--navy-light);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color .2s;
+}
+
+a:hover {
+    color: #a17b35;
+}
+
+.panel {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 15px;
+    padding: 28px;
+    margin-bottom: 24px;
+    box-shadow: 0 5px 22px rgba(16, 27, 50, .06);
+}
+
+h2 {
+    margin: 0 0 20px;
+    color: var(--navy);
+    font-family: Georgia, serif;
+    font-size: 23px;
+}
+
+h3 {
+    font-family: Georgia, serif;
+    font-size: 18px;
+    color: var(--navy);
+    padding-bottom: 11px;
+    border-bottom: 2px solid var(--gold-light);
+    margin: 28px 0 17px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 15px;
+}
+
+.field {
+    padding: 16px;
+    background: #faf9f5;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gold);
+    border-radius: 9px;
+    min-width: 0;
+}
+
+.field small {
+    display: block;
+    color: var(--muted);
+    margin-bottom: 7px;
+    font-size: 13px;
+}
+
+.field strong {
+    display: block;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    font-size: 15px;
+    color: var(--text);
+}
+
+.badge {
+    display: inline-block;
+    padding: 6px 12px;
+    background: #f1eadb;
+    color: #73551f;
+    border: 1px solid var(--gold-light);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-right: 5px;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+}
+
+.btn {
+    display: inline-block;
+    padding: 11px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-align: center;
+    transition: .2s;
+}
+
+.primary {
+    background: var(--navy);
+    color: white;
+}
+
+.primary:hover {
+    background: var(--navy-light);
+    color: var(--gold-light);
+}
+
+.secondary {
+    background: #f2f0e9;
+    color: var(--navy);
+    border-color: var(--border);
+}
+
+.secondary:hover {
+    background: #e9e3d5;
+    color: var(--navy);
+}
+
+.danger {
+    background: #a83232;
+    color: white;
+}
+
+.danger:hover {
+    background: #842525;
+    color: white;
+}
+
+.success {
+    padding: 13px 16px;
+    border-radius: 9px;
+    background: #e8f3e8;
+    color: #285b32;
+    border-left: 4px solid #579564;
+    margin: 12px 0 18px;
+}
+
+.error {
+    padding: 13px 16px;
+    border-radius: 9px;
+    background: #fbeaea;
+    color: #912f2f;
+    border-left: 4px solid #c75a5a;
+    margin: 12px 0 18px;
+}
+
+.upload-form {
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+}
+
+.upload-form label {
+    color: var(--navy);
+    font-size: 14px;
+}
+
+input[type=file],
+input[type=text],
+input[type=date],
+select,
+textarea {
+    padding: 12px 13px;
+    border: 1px solid #d9d5c9;
+    border-radius: 8px;
+    width: 100%;
+    background: #fffefa;
+    color: var(--text);
+    font: inherit;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(201, 164, 92, .15);
+}
+
+textarea {
+    resize: vertical;
+}
+
+.hint {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.7;
+    background: #faf9f5;
+    border-radius: 8px;
+    padding: 12px 15px;
+}
+
+.table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 570px;
+    background: var(--white);
+}
+
+th,
+td {
+    text-align: left;
+    padding: 13px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    vertical-align: middle;
+}
+
+th {
+    background: var(--navy);
+    color: white;
+    font-weight: 600;
+}
+
+td {
+    color: var(--text);
+}
+
+tbody tr:nth-child(even) {
+    background: #faf9f5;
+}
+
+tbody tr:hover {
+    background: #f3efe5;
+}
+
+td form {
+    display: inline;
+}
+
+.inline-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.empty {
+    padding: 25px;
+    text-align: center;
+    color: var(--muted);
+    background: #faf9f5;
+    border: 1px dashed #d9d1bf;
+    border-radius: 9px;
+}
+
+@media (max-width: 650px) {
+    header {
+        padding: 24px 18px;
+    }
+
+    header h1 {
+        font-size: 22px;
+    }
+
+    .container {
+        padding: 0 12px;
+        margin: 20px auto;
+    }
+
+    .panel {
+        padding: 18px;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    .actions .btn,
+    .actions form,
+    .actions form .btn {
+        width: 100%;
+        text-align: center;
+    }
+
+    .inline-actions {
+        flex-direction: column;
+    }
+
+    .inline-actions .btn,
+    .inline-actions form,
+    .inline-actions form .btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+
 </style>
 </head>
 <body>

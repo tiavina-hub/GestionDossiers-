@@ -80,7 +80,324 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <!DOCTYPE html><html lang="mg"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Hanampy dossier <?= e($type) ?></title>
-<style>*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f3f6fb;color:#172033}header{background:linear-gradient(120deg,#142b4a,#1769aa);color:white;padding:25px 5%}header h1{margin:0 0 9px;font-size:25px}header p{margin:0;color:#e0edff}.container{max-width:1000px;margin:25px auto;padding:0 18px}.breadcrumb{margin-bottom:20px;font-size:14px;color:#64748b;line-height:2}a{color:#1769aa;text-decoration:none;font-weight:600}.panel{background:white;border-radius:16px;padding:28px;box-shadow:0 5px 22px #1720330b}.panel h2{margin:0 0 8px;font-size:22px}.intro{color:#64748b;margin:0 0 25px;line-height:1.6}.section-title{font-size:15px;color:#1769aa;margin:25px 0 16px;padding-bottom:10px;border-bottom:1px solid #e8eef5}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.group{margin-bottom:17px}label{display:block;font-weight:600;font-size:14px;margin-bottom:8px}input,select,textarea{width:100%;padding:12px 13px;border:1px solid #d6dfeb;border-radius:9px;font:inherit;background:white;color:#172033}textarea{min-height:100px;resize:vertical}.error{background:#fff0f0;border:1px solid #fecaca;color:#991b1b;padding:13px 15px;border-radius:9px;margin-bottom:20px}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:25px}.btn{display:inline-block;padding:12px 18px;border:0;border-radius:9px;font-weight:600;font-size:14px;cursor:pointer}.btn-primary{background:#1769aa;color:white}.btn-secondary{background:#edf2f7;color:#334155}.required{color:#dc2626}.line{border:1px solid #dbe4ee;padding:16px;border-radius:10px;margin:12px 0}.line-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.remove{border:0;border-radius:6px;padding:7px 10px;background:#fee2e2;color:#991b1b;cursor:pointer}.add{border:0;border-radius:8px;padding:10px 14px;background:#e0f2fe;color:#075985;cursor:pointer}@media(max-width:650px){header{padding:22px 18px}.container{padding:0 12px}.panel{padding:19px}.grid{grid-template-columns:1fr;gap:0}.actions{flex-direction:column}.btn{text-align:center}}</style></head><body>
+<style>
+:root {
+    --navy: #101b32;
+    --navy-light: #293d5d;
+    --gold: #c9a45c;
+    --gold-light: #e6d1a0;
+    --cream: #f6f4ee;
+    --white: #fffefa;
+    --text: #202b3d;
+    --muted: #778091;
+    --border: #e8e5dc;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+header {
+    background: linear-gradient(120deg, var(--navy), var(--navy-light));
+    color: white;
+    padding: 30px 5%;
+    border-bottom: 4px solid var(--gold);
+}
+
+header h1 {
+    margin: 0 0 9px;
+    font-family: Georgia, serif;
+    font-size: clamp(24px, 3vw, 32px);
+}
+
+header p {
+    margin: 0;
+    color: var(--gold-light);
+}
+
+.container {
+    max-width: 1050px;
+    margin: 28px auto 45px;
+    padding: 0 20px;
+}
+
+.breadcrumb {
+    margin-bottom: 22px;
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 2;
+}
+
+a {
+    color: var(--navy-light);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.breadcrumb a:hover {
+    color: #987638;
+    text-decoration: underline;
+}
+
+.panel {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--gold);
+    border-radius: 17px;
+    padding: 30px;
+    box-shadow: 0 8px 25px rgba(16, 27, 50, .06);
+}
+
+.panel h2 {
+    margin: 0 0 8px;
+    font-family: Georgia, serif;
+    font-size: 26px;
+    color: var(--navy);
+}
+
+.intro {
+    color: var(--muted);
+    margin: 0 0 25px;
+    line-height: 1.7;
+}
+
+.section-title {
+    font-family: Georgia, serif;
+    font-size: 19px;
+    color: var(--navy);
+    margin: 30px 0 18px;
+    padding-bottom: 11px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+}
+
+.section-title::after {
+    content: "";
+    display: block;
+    width: 65px;
+    height: 3px;
+    background: var(--gold);
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.group {
+    margin-bottom: 18px;
+    min-width: 0;
+}
+
+label {
+    display: block;
+    font-weight: 650;
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: var(--navy-light);
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #d9d6cc;
+    border-radius: 9px;
+    font: inherit;
+    background: var(--white);
+    color: var(--text);
+    transition: border-color .2s, box-shadow .2s;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(201, 164, 92, .18);
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: #a0a5ae;
+}
+
+textarea {
+    min-height: 105px;
+    resize: vertical;
+}
+
+.error {
+    background: #fff0f0;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    padding: 14px 16px;
+    border-radius: 10px;
+    margin-bottom: 22px;
+}
+
+.required {
+    color: #bd4242;
+    font-weight: 800;
+}
+
+.actions {
+    display: flex;
+    gap: 13px;
+    flex-wrap: wrap;
+    margin-top: 28px;
+    padding-top: 22px;
+    border-top: 1px solid var(--border);
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 13px 21px;
+    border: 2px solid var(--gold);
+    border-radius: 9px;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    transition: .2s ease;
+}
+
+.btn-primary {
+    background: var(--navy);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--gold);
+    color: var(--navy);
+}
+
+.btn-secondary {
+    background: #f1eee6;
+    color: var(--navy);
+    border-color: #ddd5c3;
+}
+
+.btn-secondary:hover {
+    background: var(--gold-light);
+    color: var(--navy);
+}
+
+.line {
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--gold);
+    background: #fbfaf6;
+    padding: 19px;
+    border-radius: 11px;
+    margin: 14px 0;
+}
+
+.line-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 15px;
+    color: var(--navy);
+}
+
+.remove {
+    border: 1px solid #efc5c5;
+    border-radius: 7px;
+    padding: 8px 12px;
+    background: #fff0f0;
+    color: #991b1b;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.remove:hover {
+    background: #fee2e2;
+}
+
+.add {
+    border: 1px solid var(--gold);
+    border-radius: 8px;
+    padding: 11px 16px;
+    background: #f3efe4;
+    color: var(--navy);
+    font-weight: 700;
+    cursor: pointer;
+    transition: .2s ease;
+}
+
+.add:hover {
+    background: var(--gold-light);
+}
+
+button:focus-visible,
+a:focus-visible {
+    outline: 3px solid var(--gold);
+    outline-offset: 3px;
+}
+
+@media (max-width: 650px) {
+    header {
+        padding: 23px 18px;
+    }
+
+    .container {
+        padding: 0 12px;
+        margin-top: 19px;
+    }
+
+    .panel {
+        padding: 20px 17px;
+    }
+
+    .panel h2 {
+        font-size: 23px;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .actions {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+        text-align: center;
+    }
+
+    .line {
+        padding: 14px;
+    }
+
+    .line-head {
+        align-items: flex-start;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        transition: none !important;
+    }
+}
+</style></head><body>
 <header><h1>Hanampy dossier <?= e($type) ?></h1><p><?= e($info['fitandremana_nom']) ?> — <?= e($info['type_nom']) ?></p></header><main class="container"><nav class="breadcrumb"><a href="index.php">SP</a> → <a href="sp.php?numero=<?= urlencode((string)$info['numero_officiel']) ?>">SP <?= e($info['numero_officiel']) ?></a> → <a href="fitandremana.php?sp_id=<?= (int)$info['fitandremana_id'] ?>">Fitandremana</a> → <a href="type.php?fitandremana_id=<?= (int)$info['fitandremana_id'] ?>"><?= e($info['fitandremana_nom']) ?></a> → <a href="dossier.php?type_id=<?= $type_id ?>">Dossiers</a> → Nouveau</nav><section class="panel"><h2>Fampidirana dossier vaovao</h2><p class="intro">Fenoy ny mombamomba ny dossier. Ny saha misy <span class="required">*</span> dia tsy maintsy fenoina.</p><?php if($erreur!==''):?><div class="error"><?=e($erreur)?></div><?php endif;?>
 <form method="post" action="nouveau_dossier.php?type_id=<?=$type_id?>"><input type="hidden" name="csrf_token" value="<?=e($_SESSION['csrf_token'])?>"><input type="hidden" name="type_id" value="<?=$type_id?>"><div class="group"><label for="laharana_fitandremana">Laharana Fitandremana</label><input id="laharana_fitandremana" name="laharana_fitandremana" value="<?=e($valeurs['laharana_fitandremana'])?>" placeholder="Ohatra: 001/2026"></div>
 <?php if($type==='TANY'):?><h3 class="section-title">Mombamomba ny tany</h3><div class="group"><label>Tompon'ny tany <span class="required">*</span></label><input name="tomponny_tany" required value="<?=e($valeurs['tomponny_tany'])?>"></div><div class="grid"><?php foreach(['fokontany'=>'Fokontany','kaominina'=>'Kaominina','distrika'=>'Distrika','faritra'=>'Faritra'] as $k=>$lab):?><div class="group"><label><?=e($lab)?></label><input name="<?=$k?>" value="<?=e($valeurs[$k])?>"></div><?php endforeach;?></div><h3 class="section-title">Antontan-taratasy</h3><div class="group"><label>Karazan-tany <span class="required">*</span></label><select name="karazan_tany" required><option value="">-- Safidio --</option><?php foreach(['Titré','Cadastré','Karatany','Taratasin-totra'] as $op):?><option <?= $valeurs['karazan_tany']===$op?'selected':''?>><?=e($op)?></option><?php endforeach;?></select></div>
